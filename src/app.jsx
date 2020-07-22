@@ -41,7 +41,12 @@ const PerformanceDataItem = ({ start, end }) => (
                     <DataListCell key="time" width="4">
                         <span id={ "time-" + start }>{ moment(start).format("LT ddd YYYY-MM-DD") }</span>
                     </DataListCell>,
-                    <DataListCell key="cpu">cdata</DataListCell>,
+                    <DataListCell key="cpu">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="svg-graph" viewBox="0 0 2 4" preserveAspectRatio="none">
+                            <polygon fill="#a18fff" transform="matrix(0,0.2,-1,0,1,0)" points="0,0 0,0.2 1,0.5 2,1.0 3,0.7 4,0.5 4,0" />
+                            <polygon fill="#c6bbff" transform="matrix(0,0.2,1,0,1,0)" points="0,0 0,0.1 1,0.3 2,0.8 3,1.0 4,0.8 4,0" />
+                        </svg>
+                    </DataListCell>,
                     <DataListCell key="memory">mdata</DataListCell>,
                 ] }
             />

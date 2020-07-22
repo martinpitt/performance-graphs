@@ -32,6 +32,24 @@ const _ = cockpit.gettext;
 
 moment.locale(cockpit.language);
 
+const USGraph = ({ utilization, utilizationColor, saturation, saturationColor }) => {
+    function polygonPoints(data) {
+        return "0,0 " + // start polygons at (0, 0)
+            data.map((value, index) => index.toString() + "," + value.toString()).join(" ") +
+            " " + (data.length - 1) + ",0"; // close polygon
+    }
+
+    const len = Math.max(utilization.length, saturation.length);
+
+    // the 0.2 y scaling most probably needs adjustment to compress the graph more
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" className="svg-graph" viewBox={ "0 0 2 " + len.toString() } preserveAspectRatio="none">
+            <polygon fill={ utilizationColor } transform="matrix(0,0.2,-1,0,1,0)" points={ polygonPoints(utilization) } />
+            <polygon fill={ saturationColor } transform="matrix(0,0.2,1,0,1,0)" points={ polygonPoints(saturation) } />
+        </svg>
+    );
+};
+
 const PerformanceDataItem = ({ start, end }) => (
     <DataListItem aria-labelledby={ "time-" + start }>
         <DataListItemRow>
@@ -42,12 +60,21 @@ const PerformanceDataItem = ({ start, end }) => (
                         <span id={ "time-" + start }>{ moment(start).format("LT ddd YYYY-MM-DD") }</span>
                     </DataListCell>,
                     <DataListCell key="cpu">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="svg-graph" viewBox="0 0 2 4" preserveAspectRatio="none">
-                            <polygon fill="#a18fff" transform="matrix(0,0.2,-1,0,1,0)" points="0,0 0,0.2 1,0.5 2,1.0 3,0.7 4,0.5 4,0" />
-                            <polygon fill="#c6bbff" transform="matrix(0,0.2,1,0,1,0)" points="0,0 0,0.1 1,0.3 2,0.8 3,1.0 4,0.8 4,0" />
-                        </svg>
+                        <USGraph
+                            utilization={ [0.2, 0.5, 1.0, 0.7, 0.5, 0.6] }
+                            utilizationColor="#a18fff"
+                            saturation={ [0.1, 0.3, 0.8, 1.0, 0.7, 0.1] }
+                            saturationColor="#c6bbff"
+                        />
                     </DataListCell>,
-                    <DataListCell key="memory">mdata</DataListCell>,
+                    <DataListCell key="memory">
+                        <USGraph
+                            utilization={ [0.6, 0.6, 1.0, 1.0, 0.5, 0.5] }
+                            utilizationColor="#71b4f6"
+                            saturation={ [] }
+                            saturationColor="#b4d5f6"
+                        />
+                    </DataListCell>,
                 ] }
             />
         </DataListItemRow>

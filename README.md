@@ -1,6 +1,8 @@
 # Cockpit Performance Graphs design study/demo
 
-Wireframe design:
+[Mockup](https://garrett.github.io/cockpit-mockweb/metrics/) -- [Source](https://github.com/garrett/cockpit-mockweb/tree/master/metrics)
+
+(Old) Wireframe design:
 
 ![Wireframe Design](https://raw.githubusercontent.com/cockpit-project/cockpit-design/master/metrics/hotspot-timeline-wireframe-horizontal-vs-vertical-exploration.png)
 # Getting and building the source

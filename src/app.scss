@@ -1,3 +1,117 @@
-p {
-    font-weight: bold;
+.metrics {
+    --column-size: minmax(5rem, 10vw);
+    --data-min-height:5px;
+    --data-gap: 0;
+    &-history,
+    &-hour {
+        display: grid;
+        grid-template: "events cpu memory disks net";
+        grid-template-columns: [events] 3fr [cpu] var(--column-size) [memory] var(--column-size) [disks] var(--column-size) [network] var(--column-size);
+        grid-column: 1 / -1;
+        position: relative;
+    }
+
+    &-hour {
+        grid-gap: var(--data-gap);
+        grid-template-rows: repeat(60, minmax(var(--data-min-height), auto));
+    }
+
+    &-time,
+    &-label {
+        padding: 0.5rem 1rem;
+    }
+
+    &-info,
+    &-events {
+        padding: 0 1rem;
+    }
+
+    &-label {
+        background: #ddd;
+        position: sticky;
+        top: 0;
+        z-index: 99;
+
+        &-graph {
+            text-align: center;
+        }
+    }
+
+    &-time {
+        grid-row: 0;
+        grid-column: 1 / -1;
+        background: #eee;
+    }
+
+    &-events {
+        grid-column: events;
+        grid-row: calc(60 - var(--metrics-minute));
+        display: grid;
+        grid-template-columns: [info] 1fr [time] 1fr;
+        align-items: baseline;
+
+        dt {
+            grid-column: time;
+            font-size: var(--pf-global--FontSize--sm);
+            grid-row: 1;
+        }
+
+        dd {
+            grid-column: info;
+        }
+    }
+
+    &-info {
+        grid-row: calc(60 - var(--metrics-minute));
+        grid-column: information;
+    }
+
+    &-data {
+        grid-row: calc(60 - var(--metrics-minute));
+        display: grid;
+        grid-template-areas: "utilization saturation";
+        grid-template-columns: repeat(2, 1fr);
+        contain: strict;
+
+        > .saturation,
+        > .utilization {
+            fill: var(--color);
+            min-width: 2px;
+            width: 100%;
+            height: 100%;
+        }
+
+        > .utilization {
+            grid-area: utilization;
+        }
+
+        > .saturation {
+            grid-area: saturation;
+            opacity: 0.7;
+        }
+
+        &-cpu {
+            --color: plum;
+            grid-column: cpu;
+            --mult: 1;
+        }
+
+        &-memory {
+            --color: lightblue;
+            grid-column: memory;
+            --mult: 0.5;
+        }
+
+        &-disks {
+            --color: lightgreen;
+            grid-column: disks;
+            --mult: 0.25;
+        }
+
+        &-network {
+            --color: lightsalmon;
+            grid-column: network;
+            --mult: 0.15;
+        }
+    }
 }

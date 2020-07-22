@@ -20,7 +20,6 @@
 import cockpit from 'cockpit';
 import React from 'react';
 import {
-    DataList, DataListItem, DataListItemRow, DataListItemCells, DataListCell,
     Page, PageSection, PageSectionVariants,
 } from '@patternfly/react-core';
 
@@ -32,89 +31,76 @@ const _ = cockpit.gettext;
 
 moment.locale(cockpit.language);
 
-const USGraph = ({ utilization, utilizationColor, saturation, saturationColor }) => {
-    function polygonPoints(data) {
-        return "0,0 " + // start polygons at (0, 0)
-            data.map((value, index) => index.toString() + "," + value.toString()).join(" ") +
-            " " + (data.length - 1) + ",0"; // close polygon
-    }
+const SvgGraph = ({ category, data }) => {
+    const points = "0,0 " + // start polygon at (0, 0)
+        data.map((value, index) => index.toString() + "," + value.toString()).join(" ") +
+        " " + (data.length - 1) + ",0"; // close polygon
 
-    const len = Math.max(utilization.length, saturation.length);
+    const transform = (category === "utilization") ? "matrix(0,1,-1,0,1,0)" : "matrix(0,1,1,0,0,0)";
 
-    // the 0.2 y scaling most probably needs adjustment to compress the graph more
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" className="svg-graph" viewBox={ "0 0 2 " + len.toString() } preserveAspectRatio="none">
-            <polygon fill={ utilizationColor } transform="matrix(0,0.2,-1,0,1,0)" points={ polygonPoints(utilization) } />
-            <polygon fill={ saturationColor } transform="matrix(0,0.2,1,0,1,0)" points={ polygonPoints(saturation) } />
+        <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + (data.length - 1).toString() } preserveAspectRatio="none">
+            <polygon transform={transform} points={points} />
         </svg>
     );
 };
 
-const PerformanceDataItem = ({ start, end }) => (
-    <DataListItem aria-labelledby={ "time-" + start }>
-        <DataListItemRow>
-            <DataListItemCells
-                variant={PageSectionVariants.light}
-                dataListCells={ [
-                    <DataListCell key="time" width="4">
-                        <span id={ "time-" + start }>{ moment(start).format("LT ddd YYYY-MM-DD") }</span>
-                    </DataListCell>,
-                    <DataListCell key="cpu">
-                        <USGraph
-                            utilization={ [0.2, 0.5, 1.0, 0.7, 0.5, 0.6] }
-                            utilizationColor="#a18fff"
-                            saturation={ [0.1, 0.3, 0.8, 1.0, 0.7, 0.1] }
-                            saturationColor="#c6bbff"
-                        />
-                    </DataListCell>,
-                    <DataListCell key="memory">
-                        <USGraph
-                            utilization={ [0.6, 0.6, 1.0, 1.0, 0.5, 0.5] }
-                            utilizationColor="#71b4f6"
-                            saturation={ [] }
-                            saturationColor="#b4d5f6"
-                        />
-                    </DataListCell>,
-                ] }
-            />
-        </DataListItemRow>
-    </DataListItem>
-);
-
-export class Application extends React.Component {
-    constructor() {
-        super();
-        this.state = { };
-    }
-
+class MetricsHistory extends React.Component {
     render() {
-        const header = (
-            <DataListItem>
-                <DataListItemRow>
-                    <DataListItemCells
-                        variant={PageSectionVariants.light}
-                        dataListCells={ [
-                            <DataListCell key="time" width="4" />,
-                            <DataListCell key="cpu">{ _("CPU") }</DataListCell>,
-                            <DataListCell key="memory">{ _("Memory") }</DataListCell>,
-                        ] }
-                    />
-                </DataListItemRow>
-            </DataListItem>);
-
         // demo: only show current hour
         const now = Date.now();
-        const curr = <PerformanceDataItem start={ now - 3600000 } end={ now } />;
+        const start = now - 3600000;
+
+        const data = [];
+        for (let i = 0; i < 60; ++i) {
+            data.push(
+                <div key={ "cpu-timedatehere-" + i } className="metrics-data metrics-data-cpu" style={{ "--metrics-minute": i }} aria-hidden="true">
+                    <SvgGraph category="utilization" data={ [0.2, 0.5, 1.0, 0.7, 0.5, 0.6] } />
+                    <SvgGraph category="saturation" data={ [0.1, 0.1, 0.5, 0.9, 0.5, 0.1] } />
+                </div>);
+
+            data.push(
+                <div key={ "mem-timedatehere-" + i } className="metrics-data metrics-data-memory" style={{ "--metrics-minute": i }} aria-hidden="true">
+                    <SvgGraph category="utilization" data={ [0.6, 0.6, 1.0, 1.0, 0.5, 0.5] } />
+                </div>);
+        }
 
         return (
-            <Page>
-                <PageSection variant={PageSectionVariants.light}>
-                    <DataList aria-label={ _("Performance graphs") }>
-                        {header}
-                        {curr}
-                    </DataList>
-                </PageSection>
-            </Page>
+            <div className="metrics">
+                <section className="metrics-history">
+                    <div className="metrics-label">{ _("Events") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+
+                    <div className="metrics-hour">
+
+                        <dl className="metrics-events" style={{ "--metrics-minute": 37 }}>
+                            <dt><time>XX:37</time>  - <time>XX:38</time></dt>
+                            <dd>CPU spike</dd>
+                            <dd>IO spike</dd>
+                            <dd>Network spike</dd>
+                        </dl>
+
+                        <dl className="metrics-events" style={{ "--metrics-minute": 3 }}>
+                            <dt><time>XX:03</time> - <time>XX:07</time></dt>
+                            <dd>Swap</dd>
+                        </dl>
+
+                        { data }
+                        <h3 className="metrics-time"><time>{ moment(start).format("LT ddd YYYY-MM-DD") }</time></h3>
+                    </div>
+                </section>
+            </div>
         );
     }
 }
+
+export const Application = () => (
+    <Page>
+        <PageSection variant={PageSectionVariants.light}>
+            <MetricsHistory />
+        </PageSection>
+    </Page>
+);

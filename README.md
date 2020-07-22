@@ -1,15 +1,16 @@
-# Cockpit Starter Kit
+# Cockpit Performance Graphs design study/demo
 
-Scaffolding for a [Cockpit](http://www.cockpit-project.org) module.
+Wireframe design:
 
+![Wireframe Design](https://raw.githubusercontent.com/cockpit-project/cockpit-design/master/metrics/hotspot-timeline-wireframe-horizontal-vs-vertical-exploration.png)
 # Getting and building the source
 
 Make sure you have `npm` available (usually from your distribution package).
 These commands check out the source and build it into the `dist/` directory:
 
 ```
-git clone https://github.com/cockpit-project/starter-kit.git
-cd starter-kit
+git clone https://github.com/martinpitt/performance-graphs
+cd performance-graphs
 make
 ```
 

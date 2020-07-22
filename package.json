@@ -50,6 +50,7 @@
     "@patternfly/patternfly": "4.23.3",
     "@patternfly/react-core": "4.32.1",
     "core-js": "3.6.5",
+    "moment": "2.27.0",
     "react": "16.13.1",
     "react-dom": "16.13.1"
   }

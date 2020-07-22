@@ -19,32 +19,70 @@
 
 import cockpit from 'cockpit';
 import React from 'react';
-import { Alert, Card, CardTitle, CardBody } from '@patternfly/react-core';
+import {
+    DataList, DataListItem, DataListItemRow, DataListItemCells, DataListCell,
+    Page, PageSection, PageSectionVariants,
+} from '@patternfly/react-core';
+
+import moment from "moment";
+
 import './app.scss';
 
 const _ = cockpit.gettext;
 
+moment.locale(cockpit.language);
+
+const PerformanceDataItem = ({ start, end }) => (
+    <DataListItem aria-labelledby={ "time-" + start }>
+        <DataListItemRow>
+            <DataListItemCells
+                variant={PageSectionVariants.light}
+                dataListCells={ [
+                    <DataListCell key="time" width="4">
+                        <span id={ "time-" + start }>{ moment(start).format("LT ddd YYYY-MM-DD") }</span>
+                    </DataListCell>,
+                    <DataListCell key="cpu">cdata</DataListCell>,
+                    <DataListCell key="memory">mdata</DataListCell>,
+                ] }
+            />
+        </DataListItemRow>
+    </DataListItem>
+);
+
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { hostname: _("Unknown") };
-
-        cockpit.file('/etc/hostname').watch(content => {
-            this.setState({ hostname: content.trim() });
-        });
+        this.state = { };
     }
 
     render() {
-        return (
-            <Card>
-                <CardTitle>Starter Kit</CardTitle>
-                <CardBody>
-                    <Alert
-                        variant="info"
-                        title={ cockpit.format(_("Running on $0"), this.state.hostname) }
+        const header = (
+            <DataListItem>
+                <DataListItemRow>
+                    <DataListItemCells
+                        variant={PageSectionVariants.light}
+                        dataListCells={ [
+                            <DataListCell key="time" width="4" />,
+                            <DataListCell key="cpu">{ _("CPU") }</DataListCell>,
+                            <DataListCell key="memory">{ _("Memory") }</DataListCell>,
+                        ] }
                     />
-                </CardBody>
-            </Card>
+                </DataListItemRow>
+            </DataListItem>);
+
+        // demo: only show current hour
+        const now = Date.now();
+        const curr = <PerformanceDataItem start={ now - 3600000 } end={ now } />;
+
+        return (
+            <Page>
+                <PageSection variant={PageSectionVariants.light}>
+                    <DataList aria-label={ _("Performance graphs") }>
+                        {header}
+                        {curr}
+                    </DataList>
+                </PageSection>
+            </Page>
         );
     }
 }

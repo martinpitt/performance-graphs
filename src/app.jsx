@@ -63,37 +63,37 @@ class MetricsHistory extends React.Component {
         }
 
         return (
-            <div className="metrics">
-                <section className="metrics-history">
-                    <div className="metrics-label">{ _("Events") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+            <section className="metrics-history">
+                <div className="metrics-label">{ _("Events") }</div>
+                <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
+                <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
+                <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
+                <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                    <div className="metrics-hour">
+                <div className="metrics-hour">
 
-                        <dl className="metrics-events" style={{ "--metrics-minute": 37 }}>
-                            <dt><time>XX:37</time>  - <time>XX:38</time></dt>
-                            <dd>CPU spike</dd>
-                            <dd>IO spike</dd>
-                            <dd>Network spike</dd>
-                        </dl>
+                    <dl className="metrics-events" style={{ "--metrics-minute": 37 }}>
+                        <dt><time>XX:37</time>  - <time>XX:38</time></dt>
+                        <dd>CPU spike</dd>
+                        <dd>IO spike</dd>
+                        <dd>Network spike</dd>
+                    </dl>
 
-                        <dl className="metrics-events" style={{ "--metrics-minute": 3 }}>
-                            <dt><time>XX:03</time> - <time>XX:07</time></dt>
-                            <dd>Swap</dd>
-                        </dl>
+                    <dl className="metrics-events" style={{ "--metrics-minute": 3 }}>
+                        <dt><time>XX:03</time> - <time>XX:07</time></dt>
+                        <dd>Swap</dd>
+                    </dl>
 
-                        { data }
-                        <h3 className="metrics-time"><time>{ moment(start).format("LT ddd YYYY-MM-DD") }</time></h3>
-                    </div>
-                </section>
-            </div>
+                    { data }
+                    <h3 className="metrics-time"><time>{ moment(start).format("LT ddd YYYY-MM-DD") }</time></h3>
+                </div>
+            </section>
         );
     }
 }
 
 export const Application = () => (
-    <MetricsHistory />
+    <div className="metrics">
+        <MetricsHistory />
+    </div>
 );

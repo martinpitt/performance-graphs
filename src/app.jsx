@@ -19,9 +19,6 @@
 
 import cockpit from 'cockpit';
 import React from 'react';
-import {
-    Page, PageSection, PageSectionVariants,
-} from '@patternfly/react-core';
 
 import moment from "moment";
 
@@ -98,9 +95,5 @@ class MetricsHistory extends React.Component {
 }
 
 export const Application = () => (
-    <Page>
-        <PageSection variant={PageSectionVariants.light}>
-            <MetricsHistory />
-        </PageSection>
-    </Page>
+    <MetricsHistory />
 );

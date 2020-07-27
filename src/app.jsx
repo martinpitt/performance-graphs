@@ -49,7 +49,7 @@ const SvgGraph = ({ category, data }) => {
 };
 
 // data properties are 720 values (every 5 s) from startTime
-const MetricsHour = ({ startTime, use_cpu, sat_cpu, use_mem }) => {
+const MetricsHour = ({ startTime, use_cpu, sat_cpu, use_mem, sat_mem }) => {
     if (!use_cpu || !sat_cpu || !use_mem)
         return null;
 
@@ -66,6 +66,7 @@ const MetricsHour = ({ startTime, use_cpu, sat_cpu, use_mem }) => {
         graphs.push(
             <div key={ "mem-timedatehere-" + minute } className="metrics-data metrics-data-memory" style={{ "--metrics-minute": minute }} aria-hidden="true">
                 <SvgGraph category="utilization" data={ use_mem.slice(dataOffset, dataOffset + 12) } />
+                <SvgGraph category="saturation" data={ sat_mem.slice(dataOffset, dataOffset + 12) } />
             </div>);
     }
 
@@ -98,6 +99,7 @@ class MetricsHistory extends React.Component {
         this.use_cpu = {};
         this.sat_cpu = {};
         this.use_mem = {};
+        this.sat_mem = {};
 
         // render the last 3 hours (plus current one) initially, load more when scrolling
         // this.state = { start: current_hour - 3 * MSEC_PER_H };
@@ -111,8 +113,9 @@ class MetricsHistory extends React.Component {
         let use_cpu = [];
         let sat_cpu = [];
         let use_mem = [];
+        let sat_mem = [];
         // last valid value, for decompression
-        const current = [null, null, null, null, null, null];
+        const current = [null, null, null, null, null, null, null];
 
         const metrics = cockpit.channel({
             payload: "metrics1",
@@ -133,6 +136,9 @@ class MetricsHistory extends React.Component {
                 { name: "mem.physmem" },
                 // mem.util.used is useless, it includes cache
                 { name: "mem.util.available" },
+
+                // memory saturation
+                { name: "swap.pagesout", derive: "rate" },
             ]
         });
 
@@ -149,6 +155,7 @@ class MetricsHistory extends React.Component {
                 use_cpu.concat(Array(nodata_offset - nodata_minute_offset).fill(0));
                 sat_cpu = [...use_cpu];
                 use_mem = [...use_cpu];
+                sat_mem = [...use_cpu];
                 return;
             }
 
@@ -171,6 +178,9 @@ class MetricsHistory extends React.Component {
                 sat_cpu.push(Math.min(current[3], 10) / 10);
                 // we assume used == total - available
                 use_mem.push(1 - (current[5] / current[4]));
+                /* unbounded, and mostly 0; just categorize into "nothing" (most of the time),
+                   "a litte" (< 1000 pages), and "a lot" (> 1000 pages) */
+                sat_mem.push(current[6] > 1000 ? 1 : (current[6] > 1 ? 0.3 : 0));
             });
         });
 
@@ -188,6 +198,8 @@ class MetricsHistory extends React.Component {
                     console.log("XXX this.sat_cpu", JSON.stringify(this.sat_cpu));
                     this.use_mem[timestamp] = use_mem;
                     console.log("XXX this.use_mem", JSON.stringify(this.use_mem));
+                    this.sat_mem[timestamp] = sat_mem;
+                    console.log("XXX this.sat_mem", JSON.stringify(this.sat_mem));
                     this.setState({});
                 }
             }
@@ -210,6 +222,7 @@ class MetricsHistory extends React.Component {
                      use_cpu={this.use_cpu[this.state.start]}
                      sat_cpu={this.sat_cpu[this.state.start]}
                      use_mem={this.use_mem[this.state.start]}
+                     sat_mem={this.sat_mem[this.state.start]}
                 />
 
                 <MetricsHour
@@ -217,6 +230,7 @@ class MetricsHistory extends React.Component {
                      use_cpu={this.use_cpu[this.state.start - MSEC_PER_H]}
                      sat_cpu={this.sat_cpu[this.state.start - MSEC_PER_H]}
                      use_mem={this.use_mem[this.state.start - MSEC_PER_H]}
+                     sat_mem={this.sat_mem[this.state.start - MSEC_PER_H]}
                 />
             </section>
         );

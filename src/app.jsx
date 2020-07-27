@@ -53,6 +53,7 @@ const MetricsHour = ({ startTime, use_cpu, sat_cpu, use_mem, sat_mem }) => {
     if (!use_cpu || !sat_cpu || !use_mem)
         return null;
 
+    // compute graphs
     const graphs = [];
     for (let minute = 0; minute < 60; ++minute) {
         const dataOffset = minute * 12;
@@ -70,21 +71,26 @@ const MetricsHour = ({ startTime, use_cpu, sat_cpu, use_mem, sat_mem }) => {
             </div>);
     }
 
+    // compute spike events
+    const events = [];
+    let prev_val = 0;
+    sat_mem.forEach((value, i) => {
+        if (value === null)
+            return;
+        if (value - prev_val > 0.25) { // TODO: adjust slope
+            const minute = Math.floor(i / 12);
+            events.push(
+                <dl className="metrics-events" style={{ "--metrics-minute": minute }}>
+                    <dt><time>{ moment(startTime + (minute * 60000)).format('hh:mm') }</time></dt>
+                    <dd>{ _("Swap") }</dd>
+                </dl>);
+        }
+        prev_val = value;
+    });
+
     return (
         <div className="metrics-hour">
-
-            <dl className="metrics-events" style={{ "--metrics-minute": 37 }}>
-                <dt><time>XX:37</time>  - <time>XX:38</time></dt>
-                <dd>CPU spike</dd>
-                <dd>IO spike</dd>
-                <dd>Network spike</dd>
-            </dl>
-
-            <dl className="metrics-events" style={{ "--metrics-minute": 3 }}>
-                <dt><time>XX:03</time> - <time>XX:07</time></dt>
-                <dd>Swap</dd>
-            </dl>
-
+            { events }
             { graphs }
             <h3 className="metrics-time"><time>{ moment(startTime).format("LT ddd YYYY-MM-DD") }</time></h3>
         </div>

@@ -28,7 +28,13 @@ const _ = cockpit.gettext;
 
 moment.locale(cockpit.language);
 
+const MSEC_PER_H = 3600000;
+
 const SvgGraph = ({ category, data }) => {
+    // avoid rendering completely blank graphs for times without data
+    if (data[0] === null && data[data.length - 1] === null)
+        return null;
+
     const points = "0,0 " + // start polygon at (0, 0)
         data.map((value, index) => index.toString() + "," + value.toString()).join(" ") +
         " " + (data.length - 1) + ",0"; // close polygon
@@ -42,21 +48,24 @@ const SvgGraph = ({ category, data }) => {
     );
 };
 
-// data is 720 values (every 5 s) from startTime
-const MetricsHour = ({ startTime, data }) => {
+// data properties are 720 values (every 5 s) from startTime
+const MetricsHour = ({ startTime, use_cpu, use_mem }) => {
+    if (!use_cpu || !use_mem)
+        return null;
+
     const graphs = [];
     for (let minute = 0; minute < 60; ++minute) {
         const dataOffset = minute * 12;
 
         graphs.push(
             <div key={ "cpu-timedatehere-" + minute } className="metrics-data metrics-data-cpu" style={{ "--metrics-minute": minute }} aria-hidden="true">
-                <SvgGraph category="utilization" data={ [0.2, 0.5, 1.0, 0.7, 0.5, 0.6] } />
-                <SvgGraph category="saturation" data={ [0.1, 0.1, 0.5, 0.9, 0.5, 0.1] } />
+                <SvgGraph category="utilization" data={ use_cpu.slice(dataOffset, dataOffset + 12) } />
             </div>);
+        // <SvgGraph category="saturation" data={ [0.1, 0.1, 0.5, 0.9, 0.5, 0.1] } />
 
         graphs.push(
             <div key={ "mem-timedatehere-" + minute } className="metrics-data metrics-data-memory" style={{ "--metrics-minute": minute }} aria-hidden="true">
-                <SvgGraph category="utilization" data={ data.slice(dataOffset, dataOffset + 12) } />
+                <SvgGraph category="utilization" data={ use_mem.slice(dataOffset, dataOffset + 12) } />
             </div>);
     }
 
@@ -84,21 +93,24 @@ const MetricsHour = ({ startTime, data }) => {
 class MetricsHistory extends React.Component {
     constructor(props) {
         super(props);
-        const MSEC_PER_H = 3600000;
         const current_hour = Math.floor(Date.now() / MSEC_PER_H) * MSEC_PER_H;
-        this.use_mem = {}; // hour timestamp → array of 720 metrics samples
+        // metrics data: hour timestamp → array of 720 samples
+        this.use_cpu = {};
+        this.use_mem = {};
 
         // render the last 3 hours (plus current one) initially, load more when scrolling
         // this.state = { start: current_hour - 3 * MSEC_PER_H };
         this.state = { start: current_hour };
 
         this.load_hour(this.state.start);
+        this.load_hour(this.state.start - MSEC_PER_H);
     }
 
     load_hour(timestamp) {
-        const use_mem = [];
+        let use_cpu = [];
+        let use_mem = [];
         // last valid value, for decompression
-        const current = [null, null];
+        const current = [null, null, null, null, null];
 
         const metrics = cockpit.channel({
             payload: "metrics1",
@@ -107,6 +119,12 @@ class MetricsHistory extends React.Component {
             timestamp: timestamp,
             limit: 720,
             metrics: [
+                // CPU utilization
+                { name: "kernel.all.cpu.nice", derive: "rate" },
+                { name: "kernel.all.cpu.user", derive: "rate" },
+                { name: "kernel.all.cpu.sys", derive: "rate" },
+
+                // memory utilization
                 { name: "mem.physmem" },
                 // mem.util.used is useless, it includes cache
                 { name: "mem.util.available" },
@@ -114,19 +132,30 @@ class MetricsHistory extends React.Component {
         });
 
         metrics.addEventListener("message", (event, message) => {
-            console.log("XXX metrics message", JSON.stringify(message));
+            console.log("XXX metrics message @", timestamp, JSON.stringify(message));
             const data = JSON.parse(message);
-            // meta message always comes first, ignore
-            if (!Array.isArray(data))
+            // meta message always comes first
+            if (!Array.isArray(data)) {
+                // the first datum may not be at the requested timestamp; fill up data to offset
+                const nodata_offset = Math.floor((data.timestamp - timestamp) / 5000);
+                const nodata_minute_offset = Math.floor(nodata_offset / 12) * 12;
+                // use null blocks for "entire minute is empty" to avoid rendering SVGs
+                use_cpu = Array(nodata_minute_offset).fill(null);
+                use_cpu.concat(Array(nodata_offset - nodata_minute_offset).fill(0));
+                use_mem = [...use_cpu];
                 return;
+            }
+
             data.forEach(samples => {
                 // decompress
                 samples.forEach((sample, i) => {
                     if (sample !== null)
                         current[i] = sample;
                 });
+                // msec/s, normalize to 1
+                use_cpu.push((current[0] + current[1] + current[2]) / 1000);
                 // we assume used == total - available
-                use_mem.push(1 - (current[1] / current[0]));
+                use_mem.push(1 - (current[4] / current[3]));
             });
         });
 
@@ -138,6 +167,8 @@ class MetricsHistory extends React.Component {
                     console.error("metrics channel for timestamp", timestamp, "closed without getting data");
                 else {
                     console.log("XXX loaded metrics for hour", moment(timestamp).format());
+                    this.use_cpu[timestamp] = use_cpu;
+                    console.log("XXX this.use_cpu", JSON.stringify(this.use_cpu));
                     this.use_mem[timestamp] = use_mem;
                     console.log("XXX this.use_mem", JSON.stringify(this.use_mem));
                     this.setState({});
@@ -149,8 +180,6 @@ class MetricsHistory extends React.Component {
     }
 
     render() {
-        const data = this.use_mem[this.state.start];
-
         return (
             <section className="metrics-history">
                 <div className="metrics-label">{ _("Events") }</div>
@@ -159,7 +188,9 @@ class MetricsHistory extends React.Component {
                 <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
                 <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                { data && <MetricsHour startTime={this.state.start} data={data} /> }
+                <MetricsHour startTime={this.state.start} use_cpu={this.use_cpu[this.state.start]} use_mem={this.use_mem[this.state.start]} />
+
+                <MetricsHour startTime={this.state.start - MSEC_PER_H} use_cpu={this.use_cpu[this.state.start - MSEC_PER_H]} use_mem={this.use_mem[this.state.start - MSEC_PER_H]} />
             </section>
         );
     }

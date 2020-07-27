@@ -49,8 +49,8 @@ const SvgGraph = ({ category, data }) => {
 };
 
 // data properties are 720 values (every 5 s) from startTime
-const MetricsHour = ({ startTime, use_cpu, use_mem }) => {
-    if (!use_cpu || !use_mem)
+const MetricsHour = ({ startTime, use_cpu, sat_cpu, use_mem }) => {
+    if (!use_cpu || !sat_cpu || !use_mem)
         return null;
 
     const graphs = [];
@@ -60,8 +60,8 @@ const MetricsHour = ({ startTime, use_cpu, use_mem }) => {
         graphs.push(
             <div key={ "cpu-timedatehere-" + minute } className="metrics-data metrics-data-cpu" style={{ "--metrics-minute": minute }} aria-hidden="true">
                 <SvgGraph category="utilization" data={ use_cpu.slice(dataOffset, dataOffset + 12) } />
+                <SvgGraph category="saturation" data={ sat_cpu.slice(dataOffset, dataOffset + 12) } />
             </div>);
-        // <SvgGraph category="saturation" data={ [0.1, 0.1, 0.5, 0.9, 0.5, 0.1] } />
 
         graphs.push(
             <div key={ "mem-timedatehere-" + minute } className="metrics-data metrics-data-memory" style={{ "--metrics-minute": minute }} aria-hidden="true">
@@ -96,6 +96,7 @@ class MetricsHistory extends React.Component {
         const current_hour = Math.floor(Date.now() / MSEC_PER_H) * MSEC_PER_H;
         // metrics data: hour timestamp → array of 720 samples
         this.use_cpu = {};
+        this.sat_cpu = {};
         this.use_mem = {};
 
         // render the last 3 hours (plus current one) initially, load more when scrolling
@@ -108,9 +109,10 @@ class MetricsHistory extends React.Component {
 
     load_hour(timestamp) {
         let use_cpu = [];
+        let sat_cpu = [];
         let use_mem = [];
         // last valid value, for decompression
-        const current = [null, null, null, null, null];
+        const current = [null, null, null, null, null, null];
 
         const metrics = cockpit.channel({
             payload: "metrics1",
@@ -123,6 +125,9 @@ class MetricsHistory extends React.Component {
                 { name: "kernel.all.cpu.nice", derive: "rate" },
                 { name: "kernel.all.cpu.user", derive: "rate" },
                 { name: "kernel.all.cpu.sys", derive: "rate" },
+
+                // CPU saturation
+                { name: "kernel.all.load" },
 
                 // memory utilization
                 { name: "mem.physmem" },
@@ -142,6 +147,7 @@ class MetricsHistory extends React.Component {
                 // use null blocks for "entire minute is empty" to avoid rendering SVGs
                 use_cpu = Array(nodata_minute_offset).fill(null);
                 use_cpu.concat(Array(nodata_offset - nodata_minute_offset).fill(0));
+                sat_cpu = [...use_cpu];
                 use_mem = [...use_cpu];
                 return;
             }
@@ -149,13 +155,22 @@ class MetricsHistory extends React.Component {
             data.forEach(samples => {
                 // decompress
                 samples.forEach((sample, i) => {
-                    if (sample !== null)
-                        current[i] = sample;
+                    if (i === 3) {
+                        // CPU load: 3 instances (15min, 1min, 5min)
+                        if (sample && sample[1] !== undefined && sample[1] !== null)
+                            current[i] = sample[1];
+                    } else {
+                        // scalar values
+                        if (sample !== null)
+                            current[i] = sample;
+                    }
                 });
                 // msec/s, normalize to 1
                 use_cpu.push((current[0] + current[1] + current[2]) / 1000);
+                // unitless, unbounded; clip at 10; FIXME: some better normalization?
+                sat_cpu.push(Math.min(current[3], 10) / 10);
                 // we assume used == total - available
-                use_mem.push(1 - (current[4] / current[3]));
+                use_mem.push(1 - (current[5] / current[4]));
             });
         });
 
@@ -169,6 +184,8 @@ class MetricsHistory extends React.Component {
                     console.log("XXX loaded metrics for hour", moment(timestamp).format());
                     this.use_cpu[timestamp] = use_cpu;
                     console.log("XXX this.use_cpu", JSON.stringify(this.use_cpu));
+                    this.sat_cpu[timestamp] = sat_cpu;
+                    console.log("XXX this.sat_cpu", JSON.stringify(this.sat_cpu));
                     this.use_mem[timestamp] = use_mem;
                     console.log("XXX this.use_mem", JSON.stringify(this.use_mem));
                     this.setState({});
@@ -188,9 +205,19 @@ class MetricsHistory extends React.Component {
                 <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
                 <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                <MetricsHour startTime={this.state.start} use_cpu={this.use_cpu[this.state.start]} use_mem={this.use_mem[this.state.start]} />
+                <MetricsHour
+                     startTime={this.state.start}
+                     use_cpu={this.use_cpu[this.state.start]}
+                     sat_cpu={this.sat_cpu[this.state.start]}
+                     use_mem={this.use_mem[this.state.start]}
+                />
 
-                <MetricsHour startTime={this.state.start - MSEC_PER_H} use_cpu={this.use_cpu[this.state.start - MSEC_PER_H]} use_mem={this.use_mem[this.state.start - MSEC_PER_H]} />
+                <MetricsHour
+                     startTime={this.state.start - MSEC_PER_H}
+                     use_cpu={this.use_cpu[this.state.start - MSEC_PER_H]}
+                     sat_cpu={this.sat_cpu[this.state.start - MSEC_PER_H]}
+                     use_mem={this.use_mem[this.state.start - MSEC_PER_H]}
+                />
             </section>
         );
     }

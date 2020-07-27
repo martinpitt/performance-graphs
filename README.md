@@ -5,6 +5,20 @@
 (Old) Wireframe design:
 
 ![Wireframe Design](https://raw.githubusercontent.com/cockpit-project/cockpit-design/master/metrics/hotspot-timeline-wireframe-horizontal-vs-vertical-exploration.png)
+# Simulating activity
+
+ * CPU utilization:
+
+        dd if=/dev/urandom of=/dev/null bs=1M
+
+ * CPU saturation (high load):
+
+        for i in `seq 10000`; do dd if=/dev/urandom of=/dev/null bs=1M count=5 & done
+
+ * Memory utilization/saturation:
+
+        MEMBLOB=$(yes | dd bs=1M count=500 iflag=fullblock)
+
 # Getting and building the source
 
 Make sure you have `npm` available (usually from your distribution package).

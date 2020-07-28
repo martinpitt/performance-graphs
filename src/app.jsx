@@ -79,7 +79,7 @@ const MetricsHour = ({ startTime, data }) => {
     // compute spike events
     const minute_events = {};
     for (const type in data) {
-        let prev_val = 0;
+        let prev_val = data[type][0];
         data[type].forEach((value, i) => {
             if (value === null)
                 return;

@@ -116,7 +116,8 @@ const MetricsHour = ({ startTime, data }) => {
 class MetricsHistory extends React.Component {
     constructor(props) {
         super(props);
-        const current_hour = Math.floor(Date.now() / MSEC_PER_H) * MSEC_PER_H;
+        // use Date.now() normally, but a fixed timestamp for test/pmlog.tar.xz
+        const current_hour = Math.floor(1595936695000 / MSEC_PER_H) * MSEC_PER_H;
         // metrics data: hour timestamp → type → array of 720 samples
         this.data = {};
 

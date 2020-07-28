@@ -25,6 +25,13 @@ import './app.scss';
 const MSEC_PER_H = 3600000;
 const _ = cockpit.gettext;
 
+const EVENT_DESCRIPTION = {
+    use_cpu: _("CPU spike"),
+    sat_cpu: _("Load spike"),
+    use_memory: _("Memory spike"),
+    sat_memory: ("Swap"),
+};
+
 moment.locale(cockpit.language);
 
 const SvgGraph = ({ category, data }) => {
@@ -70,21 +77,30 @@ const MetricsHour = ({ startTime, data }) => {
     }
 
     // compute spike events
+    const minute_events = {};
+    for (const type in data) {
+        let prev_val = 0;
+        data[type].forEach((value, i) => {
+            if (value === null)
+                return;
+            if (value - prev_val > 0.25) { // TODO: adjust slope
+                const minute = Math.floor(i / 12);
+                if (minute_events[minute] === undefined)
+                    minute_events[minute] = [];
+                minute_events[minute].push(type);
+            }
+            prev_val = value;
+        });
+    }
+
     const events = [];
-    let prev_val = 0;
-    data.sat_memory.forEach((value, i) => {
-        if (value === null)
-            return;
-        if (value - prev_val > 0.25) { // TODO: adjust slope
-            const minute = Math.floor(i / 12);
-            events.push(
-                <dl className="metrics-events" style={{ "--metrics-minute": minute }}>
-                    <dt><time>{ moment(startTime + (minute * 60000)).format('hh:mm') }</time></dt>
-                    <dd>{ _("Swap") }</dd>
-                </dl>);
-        }
-        prev_val = value;
-    });
+    for (const minute in minute_events) {
+        events.push(
+            <dl className="metrics-events" style={{ "--metrics-minute": minute }}>
+                <dt><time>{ moment(startTime + (minute * 60000)).format('hh:mm') }</time></dt>
+                { minute_events[minute].map(t => <dd key={ t }>{ EVENT_DESCRIPTION[t] }</dd>) }
+            </dl>);
+    }
 
     return (
         <div className="metrics-hour">
@@ -149,11 +165,10 @@ class MetricsHistory extends React.Component {
                 const nodata_offset = Math.floor((batch.timestamp - timestamp) / 5000);
                 const nodata_minute_offset = Math.floor(nodata_offset / 12) * 12;
                 // use null blocks for "entire minute is empty" to avoid rendering SVGs
-                data.use_cpu = Array(nodata_minute_offset).fill(null);
-                data.use_cpu.concat(Array(nodata_offset - nodata_minute_offset).fill(0));
-                ['sat_cpu', 'use_memory', 'sat_memory'].forEach(t => {
-                    data[t] = [...data.use_cpu];
-                });
+                for (const type in EVENT_DESCRIPTION) {
+                    data[type] = Array(nodata_minute_offset).fill(null);
+                    data[type].concat(Array(nodata_offset - nodata_minute_offset).fill(0));
+                }
                 return;
             }
 

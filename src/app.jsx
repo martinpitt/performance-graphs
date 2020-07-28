@@ -44,10 +44,13 @@ const SvgGraph = ({ category, data }) => {
         " " + (data.length - 1) + ",0"; // close polygon
 
     const transform = (category === "utilization") ? "matrix(0,1,-1,0,1,0)" : "matrix(0,1,1,0,0,0)";
+    const ymax = (data.length - 1).toString(); // TODO: hardcode to 12 and ignore missing data?
 
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + (data.length - 1).toString() } preserveAspectRatio="none">
+        <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
             <polygon transform={transform} points={points} />
+            { category === "utilization" && <line x1="1" y1="0" x2="1" y2={ ymax } stroke="black" strokeWidth="0.015" /> }
+            <line x1="1" y1="0" x2="0" y2="0" stroke="black" strokeWidth="0.015" />
         </svg>
     );
 };

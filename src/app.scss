@@ -72,6 +72,8 @@
         grid-template-areas: "utilization saturation";
         grid-template-columns: repeat(2, 1fr);
         contain: strict;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
 
         > .saturation,
         > .utilization {
@@ -87,7 +89,10 @@
 
         > .saturation {
             grid-area: saturation;
-            opacity: 0.7;
+
+            polygon {
+                opacity: 0.7;
+            }
         }
 
         &-cpu {

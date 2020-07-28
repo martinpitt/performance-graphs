@@ -118,12 +118,12 @@ class MetricsHistory extends React.Component {
         // metrics data: hour timestamp → type → array of 720 samples
         this.data = {};
 
-        // render the last 3 hours (plus current one) initially, load more when scrolling
-        // this.state = { start: current_hour - 3 * MSEC_PER_H };
-        this.state = { start: current_hour };
+        // render the last 24 hours (plus current one) initially
+        // FIXME: load less up-front, load more when scrolling
+        this.state = { start: current_hour - 24 * MSEC_PER_H };
 
-        this.load_hour(this.state.start);
-        this.load_hour(this.state.start - MSEC_PER_H);
+        for (let hour = current_hour; hour >= this.state.start; hour -= MSEC_PER_H)
+            this.load_hour(hour);
     }
 
     load_hour(timestamp) {
@@ -224,9 +224,7 @@ class MetricsHistory extends React.Component {
                 <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
                 <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                <MetricsHour startTime={this.state.start} data={this.data[this.state.start]} />
-                <MetricsHour startTime={this.state.start - MSEC_PER_H} data={this.data[this.state.start - MSEC_PER_H]} />
-
+                { Object.keys(this.data).map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
             </section>
         );
     }

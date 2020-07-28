@@ -80,7 +80,7 @@ const MetricsHour = ({ startTime, data }) => {
     const minute_events = {};
     for (const type in data) {
         let prev_val = data[type][0];
-        data[type].forEach((value, i) => {
+        data[type].some((value, i) => {
             if (value === null)
                 return;
             if (value - prev_val > 0.25) { // TODO: adjust slope
@@ -88,8 +88,10 @@ const MetricsHour = ({ startTime, data }) => {
                 if (minute_events[minute] === undefined)
                     minute_events[minute] = [];
                 minute_events[minute].push(type);
+                return true;
             }
             prev_val = value;
+            return false;
         });
     }
 

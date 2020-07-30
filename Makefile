@@ -164,4 +164,8 @@ $(NODE_MODULES_TEST): package.json
 	env -u NODE_ENV npm install
 	env -u NODE_ENV npm prune
 
+testdata:
+	cat test/pmlog.tar.xz | ssh -p 2201 -i ~/upstream/bots/machine/identity -o StrictHostKeyChecking=no -oUserKnownHostsFile root@127.0.0.2 'set -e; systemctl stop pmlogger; rm -rf /var/log/pcp/pmlogger; tar -C / -xJf -; systemctl start pmlogger'
+	git show 9e5f4a091068400dd052ef5deeea9138d650a744 src/app.jsx | patch src/app.jsx
+
 .PHONY: all clean install devel-install dist-gzip srpm rpm check vm update-po

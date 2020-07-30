@@ -57,7 +57,7 @@ const SvgGraph = ({ category, data }) => {
 
 // data: type → 720 values (every 5 s) from startTime
 const MetricsHour = ({ startTime, data }) => {
-    if (!data)
+    if (!data || !data.use_cpu)
         return null;
 
     // compute graphs
@@ -162,12 +162,20 @@ class MetricsHistory extends React.Component {
         });
 
         metrics.addEventListener("message", (event, message) => {
-            console.log("XXX metrics message @", timestamp, JSON.stringify(message));
             const batch = JSON.parse(message);
+            console.log("XXX metrics message @", timestamp, JSON.stringify(batch));
             // meta message always comes first
             if (!Array.isArray(batch)) {
                 // the first datum may not be at the requested timestamp; fill up data to offset
                 const nodata_offset = Math.floor((batch.timestamp - timestamp) / 5000);
+                console.log("XXX message @", timestamp, "is metadata; time stamp", moment(batch.timestamp).format(), "nodata_offset", nodata_offset);
+                // ignore data which is outside of this hour
+                // FIXME: do not load this twice, change data structure
+                if (nodata_offset >= 720) {
+                    console.log("XXX message @", timestamp, "is outside of hour, ignoring");
+                    metrics.close();
+                    return;
+                }
                 const nodata_minute_offset = Math.floor(nodata_offset / 12) * 12;
                 // use null blocks for "entire minute is empty" to avoid rendering SVGs
                 for (const type in EVENT_DESCRIPTION) {
@@ -203,12 +211,14 @@ class MetricsHistory extends React.Component {
         });
 
         metrics.addEventListener("close", (event, message) => {
+            console.log("XXX metrics close @", timestamp);
             if (message.problem) {
                 console.error("failed to load metrics:", JSON.stringify(message));
             } else {
-                if (data.use_memory.length === 0)
-                    console.error("metrics channel for timestamp", timestamp, "closed without getting data");
-                else {
+                if (!data.use_memory || data.use_memory.length === 0) {
+                    this.data[timestamp] = {};
+                    console.warn("metrics channel for timestamp", timestamp, "closed without getting data");
+                } else {
                     console.log("XXX loaded metrics for hour", moment(timestamp).format());
                     this.data[timestamp] = data;
                     console.log("XXX this.data", JSON.stringify(this.data));

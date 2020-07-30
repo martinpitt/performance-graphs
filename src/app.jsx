@@ -24,6 +24,7 @@ import './app.scss';
 
 const MSEC_PER_H = 3600000;
 const INTERVAL = 5000;
+const SAMPLES_PER_H = MSEC_PER_H / INTERVAL;
 const _ = cockpit.gettext;
 
 const EVENT_DESCRIPTION = {
@@ -56,7 +57,7 @@ const SvgGraph = ({ category, data }) => {
     );
 };
 
-// data: type → 720 values (every 5 s) from startTime
+// data: type → SAMPLES_PER_H values (every 5 s) from startTime
 const MetricsHour = ({ startTime, data }) => {
     if (!data || !data.use_cpu)
         return null;
@@ -121,7 +122,7 @@ class MetricsHistory extends React.Component {
     constructor(props) {
         super(props);
         const current_hour = Math.floor(Date.now() / MSEC_PER_H) * MSEC_PER_H;
-        // metrics data: hour timestamp → type → array of 720 samples
+        // metrics data: hour timestamp → type → array of SAMPLES_PER_H samples
         this.data = {};
 
         // load and render the last 24 hours (plus current one) initially
@@ -224,7 +225,7 @@ class MetricsHistory extends React.Component {
                    "a litte" (< 1000 pages), and "a lot" (> 1000 pages) */
                 hour_data.sat_memory.push(current[6] > 1000 ? 1 : (current[6] > 1 ? 0.3 : 0));
 
-                if (hour_data.use_cpu.length === 720) {
+                if (hour_data.use_cpu.length === SAMPLES_PER_H) {
                     current_hour += MSEC_PER_H;
                     init_current_hour();
                     console.log("XXX hour overflow, advancing to", current_hour, "=", moment(current_hour).format());

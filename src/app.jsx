@@ -61,11 +61,11 @@ const SvgGraph = ({ category, data, datakey }) => {
         return null;
 
     const points = "0,0 " + // start polygon at (0, 0)
-        data.map((samples, index) => index.toString() + "," + (samples ? samples[datakey].toString() : "0")).join(" ") +
-        " " + (data.length - 1) + ",0"; // close polygon
+        data.map((samples, index) => (samples ? samples[datakey].toString() : "0") + "," + index.toString()).join(" ") +
+        " 0," + (data.length - 1); // close polygon
 
-    const transform = (category === "utilization") ? "matrix(0,1,-1,0,1,0)" : "matrix(0,1,1,0,0,0)";
     const ymax = (data.length - 1).toString(); // TODO: hardcode to SAMPLES_PER_MIN and ignore missing data?
+    const transform = (category === "utilization") ? ("matrix(-1,0,0,-1,1," + ymax + ")") : ("matrix(1,0,0,-1,0," + ymax + ")");
 
     return (
         <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">

@@ -164,7 +164,8 @@ $(NODE_MODULES_TEST): package.json
 	env -u NODE_ENV npm install
 	env -u NODE_ENV npm prune
 
-testdata:
+testdata: bots
+	chmod 600 bots/machine/identity
 	cat test/pmlog.tar.xz | ssh -p 2201 -i bots/machine/identity -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.2 'set -e; systemctl stop pmlogger; rm -rf /var/log/pcp/pmlogger; tar -C / -xJf -; systemctl start pmlogger'
 	sed -i '/const current_hour/ s/Date.now()/1595936695000/' src/app.jsx
 

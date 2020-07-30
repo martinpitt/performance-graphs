@@ -23,6 +23,7 @@ import moment from "moment";
 import './app.scss';
 
 const MSEC_PER_H = 3600000;
+const INTERVAL = 5000;
 const _ = cockpit.gettext;
 
 const EVENT_DESCRIPTION = {
@@ -123,25 +124,23 @@ class MetricsHistory extends React.Component {
         // metrics data: hour timestamp → type → array of 720 samples
         this.data = {};
 
-        // render the last 24 hours (plus current one) initially
+        // load and render the last 24 hours (plus current one) initially
         // FIXME: load less up-front, load more when scrolling
-        this.state = { start: current_hour - 24 * MSEC_PER_H };
-
-        for (let hour = current_hour; hour >= this.state.start; hour -= MSEC_PER_H)
-            this.load_hour(hour);
+        this.load_data(current_hour - 24 * MSEC_PER_H);
     }
 
-    load_hour(timestamp) {
-        const data = {};
+    load_data(load_timestamp, limit) {
+        // from timestamp from most recent meta message
+        let current_hour;
         // last valid value, for decompression
         const current = [null, null, null, null, null, null, null];
 
         const metrics = cockpit.channel({
             payload: "metrics1",
-            interval: 5000,
+            interval: INTERVAL,
             source: "pcp-archive",
-            timestamp: timestamp,
-            limit: 720,
+            timestamp: load_timestamp,
+            limit: limit,
             metrics: [
                 // CPU utilization
                 { name: "kernel.all.cpu.nice", derive: "rate" },
@@ -163,26 +162,43 @@ class MetricsHistory extends React.Component {
 
         metrics.addEventListener("message", (event, message) => {
             const batch = JSON.parse(message);
-            console.log("XXX metrics message @", timestamp, JSON.stringify(batch));
-            // meta message always comes first
-            if (!Array.isArray(batch)) {
-                // the first datum may not be at the requested timestamp; fill up data to offset
-                const nodata_offset = Math.floor((batch.timestamp - timestamp) / 5000);
-                console.log("XXX message @", timestamp, "is metadata; time stamp", moment(batch.timestamp).format(), "nodata_offset", nodata_offset);
-                // ignore data which is outside of this hour
-                // FIXME: do not load this twice, change data structure
-                if (nodata_offset >= 720) {
-                    console.log("XXX message @", timestamp, "is outside of hour, ignoring");
-                    metrics.close();
-                    return;
-                }
-                const nodata_minute_offset = Math.floor(nodata_offset / 12) * 12;
-                // use null blocks for "entire minute is empty" to avoid rendering SVGs
+            console.log("XXX metrics message", JSON.stringify(batch));
+            let hour_data;
+
+            // initialize data structure for current_hour
+            const init_current_hour = () => {
+                if (!this.data[current_hour])
+                    this.data[current_hour] = {};
+                hour_data = this.data[current_hour];
                 for (const type in EVENT_DESCRIPTION) {
-                    data[type] = Array(nodata_minute_offset).fill(null);
-                    data[type].concat(Array(nodata_offset - nodata_minute_offset).fill(0));
+                    if (!hour_data[type])
+                        hour_data[type] = [];
+                }
+            };
+
+            // meta message
+            if (!Array.isArray(batch)) {
+                current_hour = Math.floor(batch.timestamp / MSEC_PER_H) * MSEC_PER_H;
+                init_current_hour();
+
+                // add/fill up empty data prefix up to offset
+                const data_index = Math.floor((batch.timestamp - current_hour) / INTERVAL);
+                const minute_offset = data_index % 12;
+                console.log("XXX message is metadata; time stamp", batch.timestamp, "=", moment(batch.timestamp).format(), "for current_hour", current_hour, "=", moment(current_hour).format(), "data_index", data_index, "minute_offset", minute_offset);
+                const nodata_gap = data_index - hour_data.use_cpu.length;
+                if (nodata_gap > 0) {
+                    for (const type in EVENT_DESCRIPTION) {
+                        // fill up with null blocks for "entire minute is empty" to avoid rendering SVGs
+                        if (nodata_gap >= 12)
+                            hour_data[type] = hour_data[type].concat(Array(nodata_gap - minute_offset).fill(null));
+                        // fill up with zeroes data for intra-minute gap
+                        hour_data[type] = hour_data[type].concat(Array(minute_offset).fill(0));
+                    }
                 }
                 return;
+            } else {
+                init_current_hour();
+                console.log("XXX message is", batch.length, "samples data for current hour", current_hour);
             }
 
             batch.forEach(samples => {
@@ -199,31 +215,31 @@ class MetricsHistory extends React.Component {
                     }
                 });
                 // msec/s, normalize to 1
-                data.use_cpu.push((current[0] + current[1] + current[2]) / 1000);
+                hour_data.use_cpu.push((current[0] + current[1] + current[2]) / 1000);
                 // unitless, unbounded; clip at 10; FIXME: some better normalization?
-                data.sat_cpu.push(Math.min(current[3], 10) / 10);
+                hour_data.sat_cpu.push(Math.min(current[3], 10) / 10);
                 // we assume used == total - available
-                data.use_memory.push(1 - (current[5] / current[4]));
+                hour_data.use_memory.push(1 - (current[5] / current[4]));
                 /* unbounded, and mostly 0; just categorize into "nothing" (most of the time),
                    "a litte" (< 1000 pages), and "a lot" (> 1000 pages) */
-                data.sat_memory.push(current[6] > 1000 ? 1 : (current[6] > 1 ? 0.3 : 0));
+                hour_data.sat_memory.push(current[6] > 1000 ? 1 : (current[6] > 1 ? 0.3 : 0));
+
+                if (hour_data.use_cpu.length === 720) {
+                    current_hour += MSEC_PER_H;
+                    init_current_hour();
+                    console.log("XXX hour overflow, advancing to", current_hour, "=", moment(current_hour).format());
+                }
             });
         });
 
         metrics.addEventListener("close", (event, message) => {
-            console.log("XXX metrics close @", timestamp);
+            console.log("XXX metrics close @", load_timestamp);
             if (message.problem) {
                 console.error("failed to load metrics:", JSON.stringify(message));
             } else {
-                if (!data.use_memory || data.use_memory.length === 0) {
-                    this.data[timestamp] = {};
-                    console.warn("metrics channel for timestamp", timestamp, "closed without getting data");
-                } else {
-                    console.log("XXX loaded metrics for hour", moment(timestamp).format());
-                    this.data[timestamp] = data;
-                    console.log("XXX this.data", JSON.stringify(this.data));
-                    this.setState({});
-                }
+                console.log("XXX loaded metrics for timestamp", moment(load_timestamp).format());
+                Object.keys(this.data).forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
+                this.setState({});
             }
 
             metrics.close();
@@ -231,6 +247,9 @@ class MetricsHistory extends React.Component {
     }
 
     render() {
+        const hours = Object.keys(this.data);
+        // sort in descending order
+        hours.sort((a, b) => b - a);
         return (
             <section className="metrics-history">
                 <div className="metrics-label">{ _("Events") }</div>
@@ -239,7 +258,7 @@ class MetricsHistory extends React.Component {
                 <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
                 <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                { Object.keys(this.data).map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
+                { hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
             </section>
         );
     }

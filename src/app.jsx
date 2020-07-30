@@ -25,6 +25,7 @@ import './app.scss';
 const MSEC_PER_H = 3600000;
 const INTERVAL = 5000;
 const SAMPLES_PER_H = MSEC_PER_H / INTERVAL;
+const SAMPLES_PER_MIN = SAMPLES_PER_H / 60;
 const _ = cockpit.gettext;
 
 const EVENT_DESCRIPTION = {
@@ -34,19 +35,37 @@ const EVENT_DESCRIPTION = {
     sat_memory: ("Swap"),
 };
 
+const METRICS = [
+    // CPU utilization
+    { name: "kernel.all.cpu.nice", derive: "rate" },
+    { name: "kernel.all.cpu.user", derive: "rate" },
+    { name: "kernel.all.cpu.sys", derive: "rate" },
+
+    // CPU saturation
+    { name: "kernel.all.load" },
+
+    // memory utilization
+    { name: "mem.physmem" },
+    // mem.util.used is useless, it includes cache
+    { name: "mem.util.available" },
+
+    // memory saturation
+    { name: "swap.pagesout", derive: "rate" },
+];
+
 moment.locale(cockpit.language);
 
-const SvgGraph = ({ category, data }) => {
-    // avoid rendering completely blank graphs for times without data
+const SvgGraph = ({ category, data, datakey }) => {
+    // avoid rendering completely blank graphs for times without data; FIXME: check all values
     if (data[0] === null && data[data.length - 1] === null)
         return null;
 
     const points = "0,0 " + // start polygon at (0, 0)
-        data.map((value, index) => index.toString() + "," + value.toString()).join(" ") +
+        data.map((samples, index) => index.toString() + "," + (samples ? samples[datakey].toString() : "0")).join(" ") +
         " " + (data.length - 1) + ",0"; // close polygon
 
     const transform = (category === "utilization") ? "matrix(0,1,-1,0,1,0)" : "matrix(0,1,1,0,0,0)";
-    const ymax = (data.length - 1).toString(); // TODO: hardcode to 12 and ignore missing data?
+    const ymax = (data.length - 1).toString(); // TODO: hardcode to SAMPLES_PER_MIN and ignore missing data?
 
     return (
         <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
@@ -57,15 +76,12 @@ const SvgGraph = ({ category, data }) => {
     );
 };
 
-// data: type → SAMPLES_PER_H values (every 5 s) from startTime
+// data: type → SAMPLES_PER_H objects from startTime
 const MetricsHour = ({ startTime, data }) => {
-    if (!data || !data.use_cpu)
-        return null;
-
     // compute graphs
     const graphs = [];
     for (let minute = 0; minute < 60; ++minute) {
-        const dataOffset = minute * 12;
+        const dataOffset = minute * SAMPLES_PER_MIN;
 
         ['cpu', 'memory'].forEach(resource => {
             graphs.push(
@@ -75,21 +91,22 @@ const MetricsHour = ({ startTime, data }) => {
                     style={{ "--metrics-minute": minute }}
                     aria-hidden="true"
                 >
-                    <SvgGraph category="utilization" data={ data["use_" + resource].slice(dataOffset, dataOffset + 12) } />
-                    <SvgGraph category="saturation" data={ data["sat_" + resource].slice(dataOffset, dataOffset + 12) } />
+                    <SvgGraph category="utilization" data={ data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN) } datakey={ "use_" + resource } />
+                    <SvgGraph category="saturation" data={ data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN) } datakey={ "sat_" + resource } />
                 </div>);
         });
     }
 
     // compute spike events
     const minute_events = {};
-    for (const type in data) {
-        let prev_val = data[type][0];
-        data[type].some((value, i) => {
-            if (value === null)
+    for (const type in EVENT_DESCRIPTION) {
+        let prev_val = data[0] ? data[0][type] : null;
+        data.some((samples, i) => {
+            if (samples === null)
                 return;
-            if (value - prev_val > 0.25) { // TODO: adjust slope
-                const minute = Math.floor(i / 12);
+            const value = samples[type];
+            if (prev_val !== null && value - prev_val > 0.25) { // TODO: adjust slope
+                const minute = Math.floor(i / SAMPLES_PER_MIN);
                 if (minute_events[minute] === undefined)
                     minute_events[minute] = [];
                 minute_events[minute].push(type);
@@ -122,8 +139,13 @@ class MetricsHistory extends React.Component {
     constructor(props) {
         super(props);
         const current_hour = Math.floor(Date.now() / MSEC_PER_H) * MSEC_PER_H;
-        // metrics data: hour timestamp → type → array of SAMPLES_PER_H samples
+        // metrics data: hour timestamp → array of SAMPLES_PER_H objects of { type → value } or null
         this.data = {};
+
+        this.state = {
+            hours: [], // available hours for rendering in descending order
+            loading: true, // show loading indicator
+        };
 
         // load and render the last 24 hours (plus current one) initially
         // FIXME: load less up-front, load more when scrolling
@@ -131,10 +153,10 @@ class MetricsHistory extends React.Component {
     }
 
     load_data(load_timestamp, limit) {
-        // from timestamp from most recent meta message
-        let current_hour;
-        // last valid value, for decompression
-        const current = [null, null, null, null, null, null, null];
+        let current_hour; // hour of timestamp, from most recent meta message
+        let hour_index; // index within data[current_hour] array
+        const current_sample = Array(METRICS.length).fill(null); // last valid value, for decompression
+        const new_hours = {}; // set of newly seen hours during this load
 
         const metrics = cockpit.channel({
             payload: "metrics1",
@@ -142,91 +164,62 @@ class MetricsHistory extends React.Component {
             source: "pcp-archive",
             timestamp: load_timestamp,
             limit: limit,
-            metrics: [
-                // CPU utilization
-                { name: "kernel.all.cpu.nice", derive: "rate" },
-                { name: "kernel.all.cpu.user", derive: "rate" },
-                { name: "kernel.all.cpu.sys", derive: "rate" },
-
-                // CPU saturation
-                { name: "kernel.all.load" },
-
-                // memory utilization
-                { name: "mem.physmem" },
-                // mem.util.used is useless, it includes cache
-                { name: "mem.util.available" },
-
-                // memory saturation
-                { name: "swap.pagesout", derive: "rate" },
-            ]
+            metrics:  METRICS,
         });
 
         metrics.addEventListener("message", (event, message) => {
-            const batch = JSON.parse(message);
-            console.log("XXX metrics message", JSON.stringify(batch));
-            let hour_data;
+            console.log("XXX metrics message", message);
+            message = JSON.parse(message);
 
-            // initialize data structure for current_hour
             const init_current_hour = () => {
-                if (!this.data[current_hour])
-                    this.data[current_hour] = {};
-                hour_data = this.data[current_hour];
-                for (const type in EVENT_DESCRIPTION) {
-                    if (!hour_data[type])
-                        hour_data[type] = [];
+                if (!this.data[current_hour]) {
+                    this.data[current_hour] = Array(SAMPLES_PER_H).fill(null);
+                    new_hours[current_hour] = true;
                 }
             };
 
             // meta message
-            if (!Array.isArray(batch)) {
-                current_hour = Math.floor(batch.timestamp / MSEC_PER_H) * MSEC_PER_H;
+            if (!Array.isArray(message)) {
+                current_hour = Math.floor(message.timestamp / MSEC_PER_H) * MSEC_PER_H;
                 init_current_hour();
+                hour_index = Math.floor((message.timestamp - current_hour) / INTERVAL);
+                console.assert(hour_index < SAMPLES_PER_H);
 
-                // add/fill up empty data prefix up to offset
-                const data_index = Math.floor((batch.timestamp - current_hour) / INTERVAL);
-                const minute_offset = data_index % 12;
-                console.log("XXX message is metadata; time stamp", batch.timestamp, "=", moment(batch.timestamp).format(), "for current_hour", current_hour, "=", moment(current_hour).format(), "data_index", data_index, "minute_offset", minute_offset);
-                const nodata_gap = data_index - hour_data.use_cpu.length;
-                if (nodata_gap > 0) {
-                    for (const type in EVENT_DESCRIPTION) {
-                        // fill up with null blocks for "entire minute is empty" to avoid rendering SVGs
-                        if (nodata_gap >= 12)
-                            hour_data[type] = hour_data[type].concat(Array(nodata_gap - minute_offset).fill(null));
-                        // fill up with zeroes data for intra-minute gap
-                        hour_data[type] = hour_data[type].concat(Array(minute_offset).fill(0));
-                    }
-                }
+                console.log("XXX message is metadata; time stamp", message.timestamp, "=", moment(message.timestamp).format(), "for current_hour", current_hour, "=", moment(current_hour).format(), "hour_index", hour_index);
                 return;
-            } else {
-                init_current_hour();
-                console.log("XXX message is", batch.length, "samples data for current hour", current_hour);
             }
 
-            batch.forEach(samples => {
+            console.log("XXX message is", message.length, "samples data for current hour", current_hour, "=", moment(current_hour).format());
+
+            message.forEach(samples => {
                 // decompress
                 samples.forEach((sample, i) => {
                     if (i === 3) {
                         // CPU load: 3 instances (15min, 1min, 5min)
-                        if (sample && sample[1] !== undefined && sample[1] !== null)
-                            current[i] = sample[1];
+                        if (sample && sample[1] !== undefined && sample[1] !== null && sample[1] !== false)
+                            current_sample[i] = sample[1];
                     } else {
                         // scalar values
-                        if (sample !== null)
-                            current[i] = sample;
+                        if (sample !== null && sample !== false)
+                            current_sample[i] = sample;
                     }
                 });
-                // msec/s, normalize to 1
-                hour_data.use_cpu.push((current[0] + current[1] + current[2]) / 1000);
-                // unitless, unbounded; clip at 10; FIXME: some better normalization?
-                hour_data.sat_cpu.push(Math.min(current[3], 10) / 10);
-                // we assume used == total - available
-                hour_data.use_memory.push(1 - (current[5] / current[4]));
-                /* unbounded, and mostly 0; just categorize into "nothing" (most of the time),
-                   "a litte" (< 1000 pages), and "a lot" (> 1000 pages) */
-                hour_data.sat_memory.push(current[6] > 1000 ? 1 : (current[6] > 1 ? 0.3 : 0));
 
-                if (hour_data.use_cpu.length === SAMPLES_PER_H) {
+                this.data[current_hour][hour_index] = {
+                    // msec/s, normalize to 1
+                    use_cpu: (current_sample[0] + current_sample[1] + current_sample[2]) / 1000,
+                    // unitless, unbounded; clip at 10; FIXME: some better normalization?
+                    sat_cpu: Math.min(current_sample[3], 10) / 10,
+                    // we assume used == total - available
+                    use_memory: 1 - (current_sample[5] / current_sample[4]),
+                    /* unbounded, and mostly 0; just categorize into "nothing" (most of the time),
+                       "a litte" (< 1000 pages), and "a lot" (> 1000 pages) */
+                    sat_memory: current_sample[6] > 1000 ? 1 : (current_sample[6] > 1 ? 0.3 : 0),
+                };
+
+                if (++hour_index === SAMPLES_PER_H) {
                     current_hour += MSEC_PER_H;
+                    hour_index = 0;
                     init_current_hour();
                     console.log("XXX hour overflow, advancing to", current_hour, "=", moment(current_hour).format());
                 }
@@ -238,9 +231,14 @@ class MetricsHistory extends React.Component {
             if (message.problem) {
                 console.error("failed to load metrics:", JSON.stringify(message));
             } else {
-                console.log("XXX loaded metrics for timestamp", moment(load_timestamp).format());
-                Object.keys(this.data).forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
-                this.setState({});
+                console.log("XXX loaded metrics for timestamp", moment(load_timestamp).format(), "new hours", JSON.stringify(Object.keys(new_hours)));
+                Object.keys(new_hours).forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
+
+                const hours = this.state.hours.concat(Object.keys(new_hours));
+                // sort in descending order
+                hours.sort((a, b) => b - a);
+                // re-render
+                this.setState({ hours, loading: false });
             }
 
             metrics.close();
@@ -248,9 +246,10 @@ class MetricsHistory extends React.Component {
     }
 
     render() {
-        const hours = Object.keys(this.data);
-        // sort in descending order
-        hours.sort((a, b) => b - a);
+        // FIXME: empty state pattern + spinner
+        if (this.state.loading)
+            return <p>Loading...</p>;
+
         return (
             <section className="metrics-history">
                 <div className="metrics-label">{ _("Events") }</div>
@@ -259,7 +258,7 @@ class MetricsHistory extends React.Component {
                 <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
                 <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                { hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
+                { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
             </section>
         );
     }

@@ -166,7 +166,6 @@ $(NODE_MODULES_TEST): package.json
 
 testdata: bots
 	chmod 600 bots/machine/identity
-	cat test/pmlog.tar.xz | ssh -p 2201 -i bots/machine/identity -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.2 'set -e; systemctl stop pmlogger; rm -rf /var/log/pcp/pmlogger; tar -C / -xJf -; systemctl start pmlogger'
-	sed -i '/const current_hour/ s/Date.now()/1595936695000/' src/app.jsx
+	cat test/pmlog.tar.xz | ssh -p 2201 -i bots/machine/identity -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.2 'set -e; timedatectl set-ntp off; systemctl stop pmlogger; rm -rf /var/log/pcp/pmlogger; tar -C / -xJf -; timedatectl set-time @1595936695; systemctl start pmlogger'
 
 .PHONY: all clean install devel-install dist-gzip srpm rpm check vm update-po

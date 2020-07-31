@@ -138,18 +138,24 @@ const MetricsHour = ({ startTime, data }) => {
 class MetricsHistory extends React.Component {
     constructor(props) {
         super(props);
-        const current_hour = Math.floor(Date.now() / MSEC_PER_H) * MSEC_PER_H;
         // metrics data: hour timestamp → array of SAMPLES_PER_H objects of { type → value } or null
         this.data = {};
 
         this.state = {
             hours: [], // available hours for rendering in descending order
             loading: true, // show loading indicator
+            error: null,
         };
 
         // load and render the last 24 hours (plus current one) initially
         // FIXME: load less up-front, load more when scrolling
-        this.load_data(current_hour - 24 * MSEC_PER_H);
+        cockpit.spawn(["date", "+%s"])
+                .then(out => {
+                    const now = parseInt(out.trim()) * 1000;
+                    const current_hour = Math.floor(now / MSEC_PER_H) * MSEC_PER_H;
+                    this.load_data(current_hour - 24 * MSEC_PER_H);
+                })
+                .catch(ex => this.setState({ error: ex.toString() }));
     }
 
     load_data(load_timestamp, limit) {
@@ -249,6 +255,9 @@ class MetricsHistory extends React.Component {
         // FIXME: empty state pattern + spinner
         if (this.state.loading)
             return <p>Loading...</p>;
+
+        if (this.state.error)
+            return <p>ERROR: { this.state.error }</p>;
 
         return (
             <section className="metrics-history">

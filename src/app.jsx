@@ -71,7 +71,6 @@ const SvgGraph = ({ category, data, datakey }) => {
         <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
             <polygon transform={transform} points={points} />
             { category === "utilization" && <line x1="1" y1="0" x2="1" y2={ ymax } stroke="black" strokeWidth="0.015" /> }
-            <line x1="1" y1="0" x2="0" y2="0" stroke="black" strokeWidth="0.015" />
         </svg>
     );
 };

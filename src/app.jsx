@@ -20,6 +20,8 @@
 import cockpit from 'cockpit';
 import React from 'react';
 import moment from "moment";
+import { Title, Spinner, EmptyState, EmptyStateBody, EmptyStateVariant, EmptyStateIcon } from '@patternfly/react-core';
+import { ExclamationCircleIcon } from '@patternfly/react-icons';
 import './app.scss';
 
 const MSEC_PER_H = 3600000;
@@ -294,12 +296,23 @@ class MetricsHistory extends React.Component {
     }
 
     render() {
-        // FIXME: empty state pattern + spinner
         if (this.state.loading)
-            return <p>Loading...</p>;
+            return (
+                <EmptyState variant={EmptyStateVariant.full}>
+                    <Spinner size="xl" />
+                    <Title headingLevel="h2" size="lg">
+                        { _("Loading...") }
+                    </Title>
+                </EmptyState>);
 
         if (this.state.error)
-            return <p>ERROR: { this.state.error }</p>;
+            return (
+                <EmptyState variant={EmptyStateVariant.full}>
+                    <EmptyStateIcon icon={ExclamationCircleIcon} />
+                    <EmptyStateBody>
+                        {this.state.error}
+                    </EmptyStateBody>
+                </EmptyState>);
 
         return (
             <section className="metrics-history">

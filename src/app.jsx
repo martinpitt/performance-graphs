@@ -59,10 +59,7 @@ const METRICS = [
 moment.locale(cockpit.language);
 console.log(SAMPLES_PER_MIN);
 
-const SvgGraph = ({ category, data, datakey }) => {
-    // avoid rendering completely blank graphs for times without data; FIXME: check all values
-    const valid = data[0] !== null && data[data.length - 1] !== null;
-
+const SvgGraph = ({ category, data, valid, datakey }) => {
     let points = "";
     if (valid) {
         points = "0,0 " + // start polygon at (0, 0)
@@ -77,7 +74,7 @@ const SvgGraph = ({ category, data, datakey }) => {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
             { valid && <polygon transform={transform} points={points} /> }
-            { category === "utilization" && <line x1="1" y1="0" x2="1" y2={ ymax } stroke="black" strokeWidth="0.015" strokeDasharray={vertical_ruler_dash} /> }
+            { category === "utilization" && <line x1="1" y1="0" x2="1" y2={ ymax } stroke="rgba(0,0,0,0.3)" strokeWidth="0.015" strokeDasharray={vertical_ruler_dash} /> }
         </svg>
     );
 };
@@ -90,15 +87,18 @@ const MetricsHour = ({ startTime, data }) => {
         const dataOffset = minute * SAMPLES_PER_MIN;
 
         ['cpu', 'memory'].forEach(resource => {
+            const dataSlice = data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
+            // FIXME: check all values
+            const valid = dataSlice[0] !== null && dataSlice[dataSlice.length - 1] !== null;
             graphs.push(
                 <div
                     key={ resource + startTime + minute }
-                    className={ "metrics-data metrics-data-" + resource }
+                    className={ ("metrics-data metrics-data-" + resource) + (valid ? " valid-data" : " empty-data")}
                     style={{ "--metrics-minute": minute }}
                     aria-hidden="true"
                 >
-                    <SvgGraph category="utilization" data={ data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN) } datakey={ "use_" + resource } />
-                    <SvgGraph category="saturation" data={ data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN) } datakey={ "sat_" + resource } />
+                    <SvgGraph category="utilization" data={ dataSlice } valid={ valid } datakey={ "use_" + resource } />
+                    <SvgGraph category="saturation" data={ dataSlice } valid={ valid } datakey={ "sat_" + resource } />
                 </div>);
         });
     }

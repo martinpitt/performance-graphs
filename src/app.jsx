@@ -69,14 +69,16 @@ const SvgGraph = ({ category, data, valid, datakey }) => {
 
     const ymax = (SAMPLES_PER_MIN - 1).toString();
     const transform = (category === "utilization") ? ("matrix(-1,0,0,-1,1," + ymax + ")") : ("matrix(1,0,0,-1,0," + ymax + ")");
-    const vertical_ruler_dash = valid ? ymax + " 0" : ((SAMPLES_PER_MIN - 1) / 4).toString() + " " + ((SAMPLES_PER_MIN - 1) / 2).toString();
 
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
-            { valid && <polygon transform={transform} points={points} /> }
-            { category === "utilization" && <line x1="1" y1="0" x2="1" y2={ ymax } stroke="rgba(0,0,0,0.3)" strokeWidth="0.015" strokeDasharray={vertical_ruler_dash} /> }
-        </svg>
-    );
+    if (valid)
+        return (
+            <svg xmlns="http://www.w3.org/2000/svg" className={ category + (category === "utilization" ? " full-line" : "") } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
+                <polygon transform={transform} points={points} />
+            </svg>);
+    else if (category === "utilization")
+        return <div className="dotted-line" />;
+    else
+        return null;
 };
 
 // data: type → SAMPLES_PER_H objects from startTime

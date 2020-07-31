@@ -79,6 +79,14 @@
             border-top: 1px solid rgba(0,0,0,0.3);
         }
 
+        > .full-line {
+            border-right: 1px solid rgba(0,0,0,0.3);
+        }
+
+        > .dotted-line {
+            border-right: 1px dotted rgba(0,0,0,0.3);
+        }
+
         > .saturation,
         > .utilization {
             fill: var(--color);

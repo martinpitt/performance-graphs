@@ -57,23 +57,27 @@ const METRICS = [
 ];
 
 moment.locale(cockpit.language);
+console.log(SAMPLES_PER_MIN);
 
 const SvgGraph = ({ category, data, datakey }) => {
     // avoid rendering completely blank graphs for times without data; FIXME: check all values
-    if (data[0] === null && data[data.length - 1] === null)
-        return null;
+    const valid = data[0] !== null && data[data.length - 1] !== null;
 
-    const points = "0,0 " + // start polygon at (0, 0)
-        data.map((samples, index) => (samples ? samples[datakey].toString() : "0") + "," + index.toString()).join(" ") +
-        " 0," + (data.length - 1); // close polygon
+    let points = "";
+    if (valid) {
+        points = "0,0 " + // start polygon at (0, 0)
+            data.map((samples, index) => (samples ? samples[datakey].toString() : "0") + "," + index.toString()).join(" ") +
+            " 0," + (data.length - 1); // close polygon
+    }
 
-    const ymax = (data.length - 1).toString(); // TODO: hardcode to SAMPLES_PER_MIN and ignore missing data?
+    const ymax = (SAMPLES_PER_MIN - 1).toString();
     const transform = (category === "utilization") ? ("matrix(-1,0,0,-1,1," + ymax + ")") : ("matrix(1,0,0,-1,0," + ymax + ")");
+    const vertical_ruler_dash = valid ? ymax + " 0" : ((SAMPLES_PER_MIN - 1) / 4).toString() + " " + ((SAMPLES_PER_MIN - 1) / 2).toString();
 
     return (
         <svg xmlns="http://www.w3.org/2000/svg" className={ category } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
-            <polygon transform={transform} points={points} />
-            { category === "utilization" && <line x1="1" y1="0" x2="1" y2={ ymax } stroke="black" strokeWidth="0.015" /> }
+            { valid && <polygon transform={transform} points={points} /> }
+            { category === "utilization" && <line x1="1" y1="0" x2="1" y2={ ymax } stroke="black" strokeWidth="0.015" strokeDasharray={vertical_ruler_dash} /> }
         </svg>
     );
 };

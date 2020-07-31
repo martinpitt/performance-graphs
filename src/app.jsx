@@ -20,7 +20,7 @@
 import cockpit from 'cockpit';
 import React from 'react';
 import moment from "moment";
-import { Title, Spinner, EmptyState, EmptyStateBody, EmptyStateVariant, EmptyStateIcon } from '@patternfly/react-core';
+import { Button, Title, Spinner, EmptyState, EmptyStateBody, EmptyStateVariant, EmptyStateIcon, EmptyStateSecondaryActions } from '@patternfly/react-core';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 import './app.scss';
 
@@ -188,6 +188,7 @@ class MetricsHistory extends React.Component {
         this.state = {
             hours: [], // available hours for rendering in descending order
             loading: true, // show loading indicator
+            metricsAvailable: true,
             error: null,
         };
 
@@ -277,9 +278,11 @@ class MetricsHistory extends React.Component {
         });
 
         metrics.addEventListener("close", (event, message) => {
-            console.log("XXX metrics close @", load_timestamp);
             if (message.problem) {
-                console.error("failed to load metrics:", JSON.stringify(message));
+                this.setState({
+                    loading: false,
+                    metricsAvailable: false,
+                });
             } else {
                 console.log("XXX loaded metrics for timestamp", moment(load_timestamp).format(), "new hours", JSON.stringify(Object.keys(new_hours)));
                 Object.keys(new_hours).forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
@@ -303,6 +306,32 @@ class MetricsHistory extends React.Component {
                     <Title headingLevel="h2" size="lg">
                         { _("Loading...") }
                     </Title>
+                </EmptyState>);
+
+        if (cockpit.manifests && !cockpit.manifests.pcp)
+            return (
+                <EmptyState variant={EmptyStateVariant.full}>
+                    <EmptyStateIcon icon={ExclamationCircleIcon} />
+                    <Title headingLevel="h2" size="lg">
+                        { _("Package cockpit-pcp is missing") }
+                    </Title>
+                    <Button onClick={() => console.log("Installing cockpit-pcp...")}>
+                        {_("Install cockpit-pcp")}
+                    </Button>
+                </EmptyState>);
+
+        if (!this.state.metricsAvailable)
+            return (
+                <EmptyState variant={EmptyStateVariant.full}>
+                    <EmptyStateIcon icon={ExclamationCircleIcon} />
+                    <EmptyStateBody>
+                        {_("Metrics could not be loaded. Is 'pmlogger' service running?")}
+                    </EmptyStateBody>
+                    <EmptyStateSecondaryActions>
+                        <Button variant="link" onClick={() => cockpit.jump("/system/services#/pmlogger.service") }>
+                            {_("Troubleshoot")}
+                        </Button>
+                    </EmptyStateSecondaryActions>
                 </EmptyState>);
 
         if (this.state.error)

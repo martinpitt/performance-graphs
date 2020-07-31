@@ -125,8 +125,43 @@ const MetricsHour = ({ startTime, data }) => {
             </dl>);
     }
 
+    // FIXME: throttle-debounce this
+    const onMouseOver = ev => {
+        // event usually happens on an <svg> or its child, so also consider the parent elements
+        let el = ev.target;
+        let dataElement = null;
+        for (let i = 0; i < 3; ++i) {
+            if (el.classList.contains("metrics-data")) {
+                dataElement = el;
+                break;
+            } else {
+                if (el.parentElement)
+                    el = el.parentElement;
+                else
+                    break;
+            }
+        }
+
+        const hourElement = document.getElementById("metrics-hour-" + startTime.toString());
+
+        if (dataElement) {
+            const minute = parseInt(el.style.getPropertyValue("--metrics-minute"));
+            const bounds = dataElement.getBoundingClientRect();
+            const offsetY = (ev.clientY - bounds.y) / bounds.height;
+            const indexOffset = Math.floor((1 - offsetY) * SAMPLES_PER_MIN);
+            const sample = data[minute * SAMPLES_PER_MIN + indexOffset];
+            const time = moment(startTime + minute * 60000 + indexOffset * INTERVAL).format("LTS");
+            console.log("XXX mouseover hour", startTime, "minute", minute, JSON.stringify(sample), "indexOffset", indexOffset, "time", time);
+            // FIXME: render this more tastefully
+            hourElement.setAttribute("title", time + ":\n" + JSON.stringify(sample));
+        } else {
+            console.log("mouseover leave");
+            hourElement.removeAttribute("title");
+        }
+    };
+
     return (
-        <div className="metrics-hour">
+        <div id={ "metrics-hour-" + startTime.toString() } className="metrics-hour" onMouseOver={onMouseOver}>
             { events }
             { graphs }
             <h3 className="metrics-time"><time>{ moment(startTime).format("LT ddd YYYY-MM-DD") }</time></h3>

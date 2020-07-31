@@ -150,10 +150,18 @@ const MetricsHour = ({ startTime, data }) => {
             const offsetY = (ev.clientY - bounds.y) / bounds.height;
             const indexOffset = Math.floor((1 - offsetY) * SAMPLES_PER_MIN);
             const sample = data[minute * SAMPLES_PER_MIN + indexOffset];
+            if (sample === null) {
+                hourElement.removeAttribute("title");
+                return;
+            }
+
             const time = moment(startTime + minute * 60000 + indexOffset * INTERVAL).format("LTS");
             console.log("XXX mouseover hour", startTime, "minute", minute, JSON.stringify(sample), "indexOffset", indexOffset, "time", time);
             // FIXME: render this more tastefully
-            hourElement.setAttribute("title", time + ":\n" + JSON.stringify(sample));
+            let tooltip = time + ":\n";
+            for (const t in sample)
+                tooltip += `${t}: ${sample[t]}\n`;
+            hourElement.setAttribute("title", tooltip);
         } else {
             console.log("mouseover leave");
             hourElement.removeAttribute("title");

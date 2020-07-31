@@ -20,7 +20,8 @@
 import cockpit from 'cockpit';
 import React from 'react';
 import moment from "moment";
-import { Button, Title, Spinner, EmptyState, EmptyStateBody, EmptyStateVariant, EmptyStateIcon, EmptyStateSecondaryActions } from '@patternfly/react-core';
+import { EmptyStatePanel } from "../lib/cockpit-components-empty-state.jsx";
+import { Button } from '@patternfly/react-core';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 import './app.scss';
 
@@ -300,48 +301,26 @@ class MetricsHistory extends React.Component {
 
     render() {
         if (this.state.loading)
-            return (
-                <EmptyState variant={EmptyStateVariant.full}>
-                    <Spinner size="xl" />
-                    <Title headingLevel="h2" size="lg">
-                        { _("Loading...") }
-                    </Title>
-                </EmptyState>);
+            return <EmptyStatePanel loading title={_("Loading...")} />;
 
         if (cockpit.manifests && !cockpit.manifests.pcp)
-            return (
-                <EmptyState variant={EmptyStateVariant.full}>
-                    <EmptyStateIcon icon={ExclamationCircleIcon} />
-                    <Title headingLevel="h2" size="lg">
-                        { _("Package cockpit-pcp is missing") }
-                    </Title>
-                    <Button onClick={() => console.log("Installing cockpit-pcp...")}>
-                        {_("Install cockpit-pcp")}
-                    </Button>
-                </EmptyState>);
+            return <EmptyStatePanel
+                        icon={ExclamationCircleIcon}
+                        title={_("Package cockpit-pcp is missing")}
+                        action={<Button onClick={() => console.log("Installing cockpit-pcp...")}>{_("Install cockpit-pcp")}</Button>} />;
 
         if (!this.state.metricsAvailable)
-            return (
-                <EmptyState variant={EmptyStateVariant.full}>
-                    <EmptyStateIcon icon={ExclamationCircleIcon} />
-                    <EmptyStateBody>
-                        {_("Metrics could not be loaded. Is 'pmlogger' service running?")}
-                    </EmptyStateBody>
-                    <EmptyStateSecondaryActions>
-                        <Button variant="link" onClick={() => cockpit.jump("/system/services#/pmlogger.service") }>
-                            {_("Troubleshoot")}
-                        </Button>
-                    </EmptyStateSecondaryActions>
-                </EmptyState>);
+            return <EmptyStatePanel
+                        icon={ExclamationCircleIcon}
+                        title={_("Metrics could not be loaded")}
+                        paragraph={_("Is 'pmlogger' service running?")}
+                        action={<Button variant="link" onClick={() => cockpit.jump("/system/services#/pmlogger.service") }>{_("Troubleshoot")}</Button>} />;
 
         if (this.state.error)
-            return (
-                <EmptyState variant={EmptyStateVariant.full}>
-                    <EmptyStateIcon icon={ExclamationCircleIcon} />
-                    <EmptyStateBody>
-                        {this.state.error}
-                    </EmptyStateBody>
-                </EmptyState>);
+            return <EmptyStatePanel
+                        icon={ExclamationCircleIcon}
+                        title={_("Error has occured")}
+                        paragraph={this.state.error} />;
 
         return (
             <section className="metrics-history">

@@ -32,10 +32,35 @@ const SAMPLES_PER_MIN = SAMPLES_PER_H / 60;
 const _ = cockpit.gettext;
 
 const RESOURCES = {
-    use_cpu: { name: _("CPU usage"), event_description: _("CPU spike") },
-    sat_cpu: { name: _("Load"), event_description: _("Load spike") },
-    use_memory: { name: _("Memory usage"), event_description: _("Memory spike") },
-    sat_memory: { name: _("Swap out pages"), event_description: _("Swap") },
+    use_cpu: {
+        name: _("CPU usage"),
+        event_description: _("CPU spike"),
+        // all in msec/s
+        normalize: ([nice, user, sys]) => (nice + user + sys) / 1000,
+        format: ([nice, user, sys]) => `${_("nice")}: ${Math.round(nice / 10)}%, ${_("user")}: ${Math.round(user / 10)}%, ${_("sys")}: ${Math.round(sys / 10)}%`,
+    },
+    sat_cpu: {
+        name: _("Load"),
+        event_description: _("Load spike"),
+        // unitless, unbounded; clip at 10; FIXME: some better normalization
+        normalize: load => Math.min(load, 10) / 10,
+        format: load => cockpit.format_number(load),
+    },
+    use_memory: {
+        name: _("Memory usage"),
+        event_description: _("Memory spike"),
+        // assume used == total - available
+        normalize: ([total, avail]) => 1 - (avail / total),
+        format: ([total, avail]) => `${cockpit.format_bytes((total - avail) * 1024)} / ${cockpit.format_bytes(total * 1024)}`,
+    },
+    sat_memory: {
+        name: _("Swap out"),
+        event_description: _("Swap"),
+        // unbounded, and mostly 0; just categorize into "nothing" (most of the time),
+        // "a litte" (< 1000 pages), and "a lot" (> 1000 pages)
+        normalize: swapout => swapout > 1000 ? 1 : (swapout > 1 ? 0.3 : 0),
+        format: swapout => cockpit.format(_("$0 pages"), Math.floor(swapout)),
+    },
 };
 
 const METRICS = [
@@ -84,9 +109,20 @@ const SvgGraph = ({ category, data, valid, datakey }) => {
 const MetricsHour = ({ startTime, data }) => {
     // compute graphs
     const graphs = [];
+
+    // normalize data
+    const normData = data.map(sample => {
+        if (sample === null)
+            return null;
+        const n = {};
+        for (const type in sample)
+            n[type] = RESOURCES[type].normalize(sample[type]);
+        return n;
+    });
+
     for (let minute = 0; minute < 60; ++minute) {
         const dataOffset = minute * SAMPLES_PER_MIN;
-        const dataSlice = data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
+        const dataSlice = normData.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
         const valid = dataSlice.some(i => i !== null);
 
         ['cpu', 'memory'].forEach(resource => {
@@ -107,7 +143,7 @@ const MetricsHour = ({ startTime, data }) => {
     const minute_events = {};
     for (const type in RESOURCES) {
         let prev_val = data[0] ? data[0][type] : null;
-        data.some((samples, i) => {
+        normData.some((samples, i) => {
             if (samples === null)
                 return;
             const value = samples[type];
@@ -164,10 +200,9 @@ const MetricsHour = ({ startTime, data }) => {
 
             const time = moment(startTime + minute * 60000 + indexOffset * INTERVAL).format("LTS");
             console.log("XXX mouseover hour", startTime, "minute", minute, JSON.stringify(sample), "indexOffset", indexOffset, "time", time);
-            // FIXME: render this more tastefully
-            let tooltip = time + ":\n";
+            let tooltip = time + "\n\n";
             for (const t in sample)
-                tooltip += `${RESOURCES[t].name}: ${sample[t]}\n`;
+                tooltip += `${RESOURCES[t].name}: ${RESOURCES[t].format(sample[t])}\n`;
             hourElement.setAttribute("title", tooltip);
         } else {
             console.log("mouseover leave");
@@ -262,15 +297,10 @@ class MetricsHistory extends React.Component {
                 });
 
                 this.data[current_hour][hour_index] = {
-                    // msec/s, normalize to 1
-                    use_cpu: (current_sample[0] + current_sample[1] + current_sample[2]) / 1000,
-                    // unitless, unbounded; clip at 10; FIXME: some better normalization?
-                    sat_cpu: Math.min(current_sample[3], 10) / 10,
-                    // we assume used == total - available
-                    use_memory: 1 - (current_sample[5] / current_sample[4]),
-                    /* unbounded, and mostly 0; just categorize into "nothing" (most of the time),
-                       "a litte" (< 1000 pages), and "a lot" (> 1000 pages) */
-                    sat_memory: current_sample[6] > 1000 ? 1 : (current_sample[6] > 1 ? 0.3 : 0),
+                    use_cpu: [current_sample[0], current_sample[1], current_sample[2]],
+                    sat_cpu: current_sample[3],
+                    use_memory: [current_sample[4], current_sample[5]],
+                    sat_memory: current_sample[6],
                 };
 
                 if (++hour_index === SAMPLES_PER_H) {

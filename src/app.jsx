@@ -86,11 +86,11 @@ const MetricsHour = ({ startTime, data }) => {
     const graphs = [];
     for (let minute = 0; minute < 60; ++minute) {
         const dataOffset = minute * SAMPLES_PER_MIN;
+        const dataSlice = data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
+        // FIXME: check all values
+        const valid = dataSlice[0] !== null && dataSlice[dataSlice.length - 1] !== null;
 
         ['cpu', 'memory'].forEach(resource => {
-            const dataSlice = data.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
-            // FIXME: check all values
-            const valid = dataSlice[0] !== null && dataSlice[dataSlice.length - 1] !== null;
             graphs.push(
                 <div
                     key={ resource + startTime + minute }

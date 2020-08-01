@@ -29,6 +29,7 @@ const MSEC_PER_H = 3600000;
 const INTERVAL = 5000;
 const SAMPLES_PER_H = MSEC_PER_H / INTERVAL;
 const SAMPLES_PER_MIN = SAMPLES_PER_H / 60;
+const SVG_YMAX = (SAMPLES_PER_MIN - 1).toString();
 const _ = cockpit.gettext;
 
 const RESOURCES = {
@@ -83,17 +84,24 @@ const METRICS = [
 
 moment.locale(cockpit.language);
 
-const SvgGraph = ({ category, data, datakey }) => {
-    const points = "0,0 " + // start polygon at (0, 0)
-        data.map((samples, index) => (samples ? samples[datakey].toString() : "0") + "," + index.toString()).join(" ") +
-        " 0," + (data.length - 1); // close polygon
-
-    const ymax = (SAMPLES_PER_MIN - 1).toString();
-    const transform = (category === "utilization") ? ("matrix(-1,0,0,-1,1," + ymax + ")") : ("matrix(1,0,0,-1,0," + ymax + ")");
+const SvgGraph = ({ data, resource }) => {
+    const dataPoints = key => (
+        "0,0 " + // start polygon at (0, 0)
+        data.map((samples, index) => (samples ? samples[key].toString() : "0") + "," + index.toString()).join(" ") +
+        " 0," + (data.length - 1) // close polygon
+    );
 
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" className={ category + (category === "utilization" ? " full-line" : "") } viewBox={ "0 0 1 " + ymax } preserveAspectRatio="none">
-            <polygon transform={transform} points={points} />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox={ "0 0 2 " + SVG_YMAX } preserveAspectRatio="none">
+            <polygon
+                 transform={ "matrix(-1,0,0,-1,1," + SVG_YMAX + ")" }
+                 points={ dataPoints("use_" + resource) }
+            />
+            <polygon
+                transform={ "matrix(1,0,0,-1,1," + SVG_YMAX + ")" }
+                points={ dataPoints("sat_" + resource) }
+                opacity="0.7"
+            />
         </svg>
     );
 };
@@ -119,17 +127,6 @@ const MetricsHour = ({ startTime, data }) => {
         const valid = dataSlice.some(i => i !== null);
 
         ['cpu', 'memory'].forEach(resource => {
-            let el;
-            if (valid) {
-                el = (
-                    <>
-                        <SvgGraph category="utilization" data={ dataSlice } datakey={ "use_" + resource } />
-                        <SvgGraph category="saturation" data={ dataSlice } datakey={ "sat_" + resource } />
-                    </>);
-            } else {
-                el = <div className="dotted-line" />;
-            }
-
             graphs.push(
                 <div
                     key={ resource + startTime + minute }
@@ -137,7 +134,7 @@ const MetricsHour = ({ startTime, data }) => {
                     style={{ "--metrics-minute": minute }}
                     aria-hidden="true"
                 >
-                    {el}
+                    { valid && <SvgGraph data={dataSlice} resource={resource} /> }
                 </div>);
         });
     }

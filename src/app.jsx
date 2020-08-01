@@ -31,11 +31,11 @@ const SAMPLES_PER_H = MSEC_PER_H / INTERVAL;
 const SAMPLES_PER_MIN = SAMPLES_PER_H / 60;
 const _ = cockpit.gettext;
 
-const EVENT_DESCRIPTION = {
-    use_cpu: _("CPU spike"),
-    sat_cpu: _("Load spike"),
-    use_memory: _("Memory spike"),
-    sat_memory: ("Swap"),
+const RESOURCES = {
+    use_cpu: { name: _("CPU usage"), event_description: _("CPU spike") },
+    sat_cpu: { name: _("Load"), event_description: _("Load spike") },
+    use_memory: { name: _("Memory usage"), event_description: _("Memory spike") },
+    sat_memory: { name: _("Swap out pages"), event_description: _("Swap") },
 };
 
 const METRICS = [
@@ -106,7 +106,7 @@ const MetricsHour = ({ startTime, data }) => {
 
     // compute spike events
     const minute_events = {};
-    for (const type in EVENT_DESCRIPTION) {
+    for (const type in RESOURCES) {
         let prev_val = data[0] ? data[0][type] : null;
         data.some((samples, i) => {
             if (samples === null)
@@ -129,7 +129,7 @@ const MetricsHour = ({ startTime, data }) => {
         events.push(
             <dl key={minute} className="metrics-events" style={{ "--metrics-minute": minute }}>
                 <dt><time>{ moment(startTime + (minute * 60000)).format('hh:mm') }</time></dt>
-                { minute_events[minute].map(t => <dd key={ t }>{ EVENT_DESCRIPTION[t] }</dd>) }
+                { minute_events[minute].map(t => <dd key={ t }>{ RESOURCES[t].event_description }</dd>) }
             </dl>);
     }
 
@@ -168,7 +168,7 @@ const MetricsHour = ({ startTime, data }) => {
             // FIXME: render this more tastefully
             let tooltip = time + ":\n";
             for (const t in sample)
-                tooltip += `${t}: ${sample[t]}\n`;
+                tooltip += `${RESOURCES[t].name}: ${sample[t]}\n`;
             hourElement.setAttribute("title", tooltip);
         } else {
             console.log("mouseover leave");

@@ -57,7 +57,6 @@ const METRICS = [
 ];
 
 moment.locale(cockpit.language);
-console.log(SAMPLES_PER_MIN);
 
 const SvgGraph = ({ category, data, valid, datakey }) => {
     let points = "";

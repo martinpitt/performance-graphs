@@ -57,10 +57,17 @@ const RESOURCES = {
     sat_memory: {
         name: _("Swap out"),
         event_description: _("Swap"),
-        // unbounded, and mostly 0; just categorize into "nothing" (most of the time),
+        // page/s, unbounded, and mostly 0; just categorize into "nothing" (most of the time),
         // "a litte" (< 1000 pages), and "a lot" (> 1000 pages)
         normalize: swapout => swapout > 1000 ? 1 : (swapout > 1 ? 0.3 : 0),
         format: swapout => cockpit.format(_("$0 pages"), Math.floor(swapout)),
+    },
+    use_disks: {
+        name: _("Disk I/O"),
+        event_description: _("Disk I/O spike"),
+        // kB/s, unbounded, clip at 100MB/s; FIXME: some better normalization
+        normalize: kBps => Math.min(kBps, 100000) / 100000,
+        format: kBps => cockpit.format_bytes_per_sec(kBps * 1024),
     },
 };
 
@@ -80,6 +87,9 @@ const METRICS = [
 
     // memory saturation
     { name: "swap.pagesout", derive: "rate" },
+
+    // disk utilization
+    { name: "disk.all.total_bytes", derive: "rate" },
 ];
 
 moment.locale(cockpit.language);
@@ -97,11 +107,11 @@ const SvgGraph = ({ data, resource }) => {
                  transform={ "matrix(-1,0,0,-1,1," + SVG_YMAX + ")" }
                  points={ dataPoints("use_" + resource) }
             />
-            <polygon
+            { (resource === 'cpu' || resource === 'memory') && <polygon
                 transform={ "matrix(1,0,0,-1,1," + SVG_YMAX + ")" }
                 points={ dataPoints("sat_" + resource) }
                 opacity="0.7"
-            />
+            /> }
         </svg>
     );
 };
@@ -126,7 +136,7 @@ const MetricsHour = ({ startTime, data }) => {
         const dataSlice = normData.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
         const valid = dataSlice.some(i => i !== null);
 
-        ['cpu', 'memory'].forEach(resource => {
+        ['cpu', 'memory', 'disks'].forEach(resource => {
             graphs.push(
                 <div
                     key={ resource + startTime + minute }
@@ -255,7 +265,7 @@ class MetricsHistory extends React.Component {
             source: "pcp-archive",
             timestamp: load_timestamp,
             limit: limit,
-            metrics:  METRICS,
+            metrics: METRICS,
         });
 
         metrics.addEventListener("message", (event, message) => {
@@ -301,6 +311,7 @@ class MetricsHistory extends React.Component {
                     sat_cpu: current_sample[3],
                     use_memory: [current_sample[4], current_sample[5]],
                     sat_memory: current_sample[6],
+                    use_disks: current_sample[7],
                 };
 
                 if (++hour_index === SAMPLES_PER_H) {

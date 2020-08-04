@@ -167,7 +167,7 @@ const MetricsHour = ({ startTime, data }) => {
     const minute_events = {};
     for (const type in RESOURCES) {
         let prev_val = data[0] ? data[0][type] : null;
-        normData.some((samples, i) => {
+        normData.forEach((samples, i) => {
             if (samples === null)
                 return;
             const value = samples[type];
@@ -177,10 +177,8 @@ const MetricsHour = ({ startTime, data }) => {
                 if (minute_events[minute] === undefined)
                     minute_events[minute] = [];
                 minute_events[minute].push(type);
-                return true;
             }
             prev_val = value;
-            return false;
         });
     }
 

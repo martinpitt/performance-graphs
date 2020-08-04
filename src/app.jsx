@@ -30,6 +30,7 @@ const INTERVAL = 5000;
 const SAMPLES_PER_H = MSEC_PER_H / INTERVAL;
 const SAMPLES_PER_MIN = SAMPLES_PER_H / 60;
 const SVG_YMAX = (SAMPLES_PER_MIN - 1).toString();
+const LOAD_HOURS = 12;
 const _ = cockpit.gettext;
 
 const RESOURCES = {
@@ -249,6 +250,8 @@ class MetricsHistory extends React.Component {
         this.data = {};
         // timestamp of the most recent sample that we got (for auto-refresh)
         this.most_recent = 0;
+        // Oldest read data
+        this.oldest_timestamp = 0;
 
         this.state = {
             hours: [], // available hours for rendering in descending order
@@ -257,18 +260,25 @@ class MetricsHistory extends React.Component {
             error: null,
         };
 
+        this.handleMoreData = this.handleMoreData.bind(this);
+
         // load and render the last 24 hours (plus current one) initially
         // FIXME: load less up-front, load more when scrolling
         cockpit.spawn(["date", "+%s"])
                 .then(out => {
                     const now = parseInt(out.trim()) * 1000;
                     const current_hour = Math.floor(now / MSEC_PER_H) * MSEC_PER_H;
-                    this.load_data(current_hour - 24 * MSEC_PER_H);
+                    this.load_data(current_hour - LOAD_HOURS * MSEC_PER_H);
                 })
                 .catch(ex => this.setState({ error: ex.toString() }));
     }
 
+    handleMoreData() {
+        this.load_data(this.oldest_timestamp - (LOAD_HOURS * MSEC_PER_H), LOAD_HOURS * SAMPLES_PER_H);
+    }
+
     load_data(load_timestamp, limit) {
+        this.oldest_timestamp = this.oldest_timestamp > load_timestamp || this.oldest_timestamp === 0 ? load_timestamp : this.oldest_timestamp;
         let current_hour; // hour of timestamp, from most recent meta message
         let hour_index; // index within data[current_hour] array
         const current_sample = Array(METRICS.length).fill(null); // last valid value, for decompression
@@ -400,15 +410,20 @@ class MetricsHistory extends React.Component {
                         paragraph={this.state.error} />;
 
         return (
-            <section className="metrics-history">
-                <div className="metrics-label">{ _("Events") }</div>
-                <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
-                <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
-                <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
-                <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+            <>
+                <section className="metrics-history">
+                    <div className="metrics-label">{ _("Events") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
+                    <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
-            </section>
+                    { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
+                </section>
+                <div className="bottom-panel">
+                    <Button onClick={this.handleMoreData}>{_("Load more data")}</Button>
+                </div>
+            </>
         );
     }
 }

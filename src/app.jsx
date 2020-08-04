@@ -248,6 +248,8 @@ class MetricsHistory extends React.Component {
         super(props);
         // metrics data: hour timestamp → array of SAMPLES_PER_H objects of { type → value } or null
         this.data = {};
+        // timestamp of the most recent sample that we got (for auto-refresh)
+        this.most_recent = 0;
 
         this.state = {
             hours: [], // available hours for rendering in descending order
@@ -271,7 +273,7 @@ class MetricsHistory extends React.Component {
         let current_hour; // hour of timestamp, from most recent meta message
         let hour_index; // index within data[current_hour] array
         const current_sample = Array(METRICS.length).fill(null); // last valid value, for decompression
-        const new_hours = {}; // set of newly seen hours during this load
+        const new_hours = new Set(); // newly seen hours during this load
 
         const metrics = cockpit.channel({
             payload: "metrics1",
@@ -287,10 +289,9 @@ class MetricsHistory extends React.Component {
             message = JSON.parse(message);
 
             const init_current_hour = () => {
-                if (!this.data[current_hour]) {
+                if (!this.data[current_hour])
                     this.data[current_hour] = Array(SAMPLES_PER_H).fill(null);
-                    new_hours[current_hour] = true;
-                }
+                new_hours.add(current_hour);
             };
 
             // meta message
@@ -347,6 +348,10 @@ class MetricsHistory extends React.Component {
                     console.log("XXX hour overflow, advancing to", current_hour, "=", moment(current_hour).format());
                 }
             });
+
+            // update most recent sample timestamp
+            this.most_recent = Math.max(this.most_recent, current_hour + hour_index * INTERVAL);
+            console.log("XXX most recent timestamp is now", this.most_recent, "=", moment(this.most_recent).format());
         });
 
         metrics.addEventListener("close", (event, message) => {
@@ -356,14 +361,16 @@ class MetricsHistory extends React.Component {
                     metricsAvailable: false,
                 });
             } else {
-                console.log("XXX loaded metrics for timestamp", moment(load_timestamp).format(), "new hours", JSON.stringify(Object.keys(new_hours)));
-                Object.keys(new_hours).forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
+                console.log("XXX loaded metrics for timestamp", moment(load_timestamp).format(), "new hours", JSON.stringify(Array.from(new_hours)));
+                new_hours.forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
 
-                const hours = this.state.hours.concat(Object.keys(new_hours));
+                const hours = Array.from(new Set([...this.state.hours, ...new_hours]));
                 // sort in descending order
                 hours.sort((a, b) => b - a);
                 // re-render
                 this.setState({ hours, loading: false });
+                // trigger automatic update every minute
+                window.setTimeout(() => this.load_data(this.most_recent), 60000);
             }
 
             metrics.close();

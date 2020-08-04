@@ -19,6 +19,14 @@
 
         MEMBLOB=$(yes | dd bs=1M count=500 iflag=fullblock)
 
+ * Disk utilization:
+
+        find /usr -type f | xargs cat >/dev/null
+
+ * Network utilization:
+
+        dd if=/dev/zero bs=1M count=2000 | ssh admin@c 'cat >/dev/null'
+
 # Getting and building the source
 
 Make sure you have `npm` available (usually from your distribution package).

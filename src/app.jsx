@@ -69,6 +69,13 @@ const RESOURCES = {
         normalize: kBps => Math.min(kBps, 100000) / 100000,
         format: kBps => cockpit.format_bytes_per_sec(kBps * 1024),
     },
+    use_network: {
+        name: _("Network I/O"),
+        event_description: _("Network I/O spike"),
+        // B/s, unbounded, clip at 100MB/s; FIXME: some better normalization
+        normalize: bps => Math.min(bps, 100000000) / 100000000,
+        format: bps => cockpit.format_bytes_per_sec(bps),
+    },
 };
 
 const METRICS = [
@@ -90,7 +97,14 @@ const METRICS = [
 
     // disk utilization
     { name: "disk.all.total_bytes", derive: "rate" },
+
+    // network utilization
+    { name: "network.interface.total.bytes", derive: "rate", "omit-instances": ["lo"] },
 ];
+
+// metrics with instances, which need special treatment
+const LOAD_INDEX = 3;
+const NET_TOTAL_INDEX = 8;
 
 moment.locale(cockpit.language);
 
@@ -136,7 +150,7 @@ const MetricsHour = ({ startTime, data }) => {
         const dataSlice = normData.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
         const valid = dataSlice.some(i => i !== null);
 
-        ['cpu', 'memory', 'disks'].forEach(resource => {
+        ['cpu', 'memory', 'disks', 'network'].forEach(resource => {
             graphs.push(
                 <div
                     key={ resource + startTime + minute }
@@ -295,10 +309,20 @@ class MetricsHistory extends React.Component {
             message.forEach(samples => {
                 // decompress
                 samples.forEach((sample, i) => {
-                    if (i === 3) {
+                    if (i === LOAD_INDEX) {
                         // CPU load: 3 instances (15min, 1min, 5min)
                         if (sample && sample[1] !== undefined && sample[1] !== null && sample[1] !== false)
                             current_sample[i] = sample[1];
+                    } else if (i === NET_TOTAL_INDEX) {
+                        // network rates: one instance per interface
+                        if (current_sample[NET_TOTAL_INDEX] === null) {
+                            current_sample[NET_TOTAL_INDEX] = sample;
+                        } else {
+                            sample.forEach((iface, k) => {
+                                if (iface !== null && iface !== false)
+                                    current_sample[NET_TOTAL_INDEX][k] = iface;
+                            });
+                        }
                     } else {
                         // scalar values
                         if (sample !== null && sample !== false)
@@ -308,10 +332,12 @@ class MetricsHistory extends React.Component {
 
                 this.data[current_hour][hour_index] = {
                     use_cpu: [current_sample[0], current_sample[1], current_sample[2]],
-                    sat_cpu: current_sample[3],
+                    sat_cpu: current_sample[LOAD_INDEX],
                     use_memory: [current_sample[4], current_sample[5]],
                     sat_memory: current_sample[6],
                     use_disks: current_sample[7],
+                    // TODO: eventually track/display this by-interface?
+                    use_network: current_sample[NET_TOTAL_INDEX].reduce((acc, cur) => acc + cur, 0),
                 };
 
                 if (++hour_index === SAMPLES_PER_H) {

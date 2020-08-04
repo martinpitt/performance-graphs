@@ -193,7 +193,7 @@ const MetricsHour = ({ startTime, data }) => {
     }
 
     // FIXME: throttle-debounce this
-    const onMouseOver = ev => {
+    const updateTooltip = ev => {
         // event usually happens on an <svg> or its child, so also consider the parent elements
         let el = ev.target;
         let dataElement = null;
@@ -223,19 +223,19 @@ const MetricsHour = ({ startTime, data }) => {
             }
 
             const time = moment(startTime + minute * 60000 + indexOffset * INTERVAL).format("LTS");
-            console.log("XXX mouseover hour", startTime, "minute", minute, JSON.stringify(sample), "indexOffset", indexOffset, "time", time);
+            console.log("XXX", ev.type, "hour", startTime, "minute", minute, JSON.stringify(sample), "indexOffset", indexOffset, "time", time);
             let tooltip = time + "\n\n";
             for (const t in sample)
                 tooltip += `${RESOURCES[t].name}: ${RESOURCES[t].format(sample[t])}\n`;
             hourElement.setAttribute("title", tooltip);
         } else {
-            console.log("mouseover leave");
+            console.log(ev.type, "leave");
             hourElement.removeAttribute("title");
         }
     };
 
     return (
-        <div id={ "metrics-hour-" + startTime.toString() } className="metrics-hour" onMouseOver={onMouseOver}>
+        <div id={ "metrics-hour-" + startTime.toString() } className="metrics-hour" onMouseMove={updateTooltip}>
             { events }
             { graphs }
             <h3 className="metrics-time"><time>{ moment(startTime).format("LT ddd YYYY-MM-DD") }</time></h3>

@@ -378,8 +378,10 @@ class MetricsHistory extends React.Component {
                 hours.sort((a, b) => b - a);
                 // re-render
                 this.setState({ hours, loading: false });
+
                 // trigger automatic update every minute
-                window.setTimeout(() => this.load_data(this.most_recent), 60000);
+                if (!limit)
+                    window.setTimeout(() => this.load_data(this.most_recent), 60000);
             }
 
             metrics.close();

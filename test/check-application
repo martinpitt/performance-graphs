@@ -18,37 +18,59 @@ class TestApplication(testlib.MachineCase):
         b = self.browser
         m = self.machine
 
-        self.login_and_go("/starter-kit")
-        # verify expected heading
-        b.wait_text(".pf-c-card__title", "Starter Kit")
+        m.execute("systemctl start pmlogger")
 
-        # verify expected host name
-        hostname = m.execute("hostname").strip()
-        b.wait_in_text(".pf-c-alert__title", "Running on " + hostname)
+        self.login_and_go("/performance-graphs")
+        # eventually finishes data loading and shows heading
+        b.wait_in_text(".metrics-history", "Events")
+        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_present(".metrics-hour .metrics-data-cpu")
 
-        # change current hostname
-        m.execute("echo new-%s > /etc/hostname" % hostname)
-        # verify new hostname name
-        b.wait_in_text(".pf-c-alert__title", "Running on new-" + hostname)
+        # only shows current hour
+        b.wait_js_func("ph_count_check", ".metrics-hour", 1)
 
-        # change language to German
-        b.switch_to_top()
-        b.click("#navbar-dropdown")
-        b.click(".display-language-menu a")
-        b.wait_popup('display-language')
-        b.set_val("#display-language select", "de-de")
-        b.click("#display-language-select-button")
-        b.expect_load()
-        # HACK: work around language switching in Chrome not working in current session (Cockpit issue #8160)
-        b.reload(ignore_cache=True)
-        b.wait_present("#content")
-        # menu label (from manifest) should be translated
-        b.wait_text("#host-apps a[href='/starter-kit']", "Bausatz")
+        # VM just started, we don't have 12 hours of data
+        b.wait_in_text(".metrics .pf-c-alert", "No data available between")
+        # initial data gap is < 24 hours, does not show date
+        year = m.execute("date +%Y").strip()
+        self.assertNotIn(year, b.text(".metrics .pf-c-alert"))
 
-        b.go("/starter-kit")
-        b.enter_page("/starter-kit")
-        # page label (from js) should be translated
-        b.wait_in_text(".pf-c-alert__title", "Läuft auf")
+        # can try to load earlier data; only updates "no data" alert as there is no data
+        b.wait_text(".bottom-panel button", "Load earlier data")
+        b.click(".bottom-panel button")
+        # now the gap is > 24 hours, does show date
+        b.wait_in_text(".metrics .pf-c-alert", year)
+        # still only one hour
+        b.wait_js_func("ph_count_check", ".metrics-hour", 1)
+
+    @testlib.nondestructive
+    def testNoData(self):
+        b = self.browser
+        m = self.machine
+
+        m.execute("systemctl stop pmlogger && mount -t tmpfs tmpfs /var/log/pcp/pmlogger")
+        self.addCleanup(m.execute, "umount /var/log/pcp/pmlogger")
+
+        self.login_and_go("/performance-graphs")
+        b.wait_in_text(".pf-c-empty-state", "Metrics could not be loaded")
+        # Troubleshoot
+        b.click(".pf-c-empty-state button.pf-m-link")
+        b.enter_page("/system/services")
+        b.wait_in_text("#service-details", "pmlogger.service")
+
+    @testlib.nondestructive
+    def testNoCockpitPcp(self):
+        b = self.browser
+        m = self.machine
+
+        m.execute("mount -t tmpfs tmpfs /usr/share/cockpit/pcp")
+        self.addCleanup(m.execute, "umount /usr/share/cockpit/pcp")
+
+        self.login_and_go("/performance-graphs")
+        b.wait_in_text(".pf-c-empty-state", "cockpit-pcp is missing")
+        b.click(".pf-c-empty-state button.pf-m-primary")
+        # this button does not yet do anything
+
 
 if __name__ == '__main__':
     testlib.test_main()

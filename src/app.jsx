@@ -21,7 +21,7 @@ import cockpit from 'cockpit';
 import React from 'react';
 import moment from "moment";
 import { EmptyStatePanel } from "../lib/cockpit-components-empty-state.jsx";
-import { Button } from '@patternfly/react-core';
+import { Alert, Button } from '@patternfly/react-core';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 import './app.scss';
 
@@ -434,6 +434,19 @@ class MetricsHistory extends React.Component {
                         title={_("Error has occured")}
                         paragraph={this.state.error} />;
 
+        let nodata_alert = null;
+        if (!this.state.loading && this.state.hours.length > 0 && this.oldest_timestamp < this.state.hours[0]) {
+            let t1, t2;
+            if (this.state.hours[0] - this.oldest_timestamp < 24 * MSEC_PER_H) {
+                t1 = moment(this.oldest_timestamp).format("LT");
+                t2 = moment(this.state.hours[0]).format("LT");
+            } else {
+                t1 = moment(this.oldest_timestamp).format("ddd YYYY-MM-DD LT");
+                t2 = moment(this.state.hours[0]).format("ddd YYYY-MM-DD LT");
+            }
+            nodata_alert = <Alert className="nodata" variant="info" isInline title={ cockpit.format(_("No data available between $0 and $1"), t1, t2) } />;
+        }
+
         return (
             <>
                 { this.state.hours.length > 0 &&
@@ -446,10 +459,11 @@ class MetricsHistory extends React.Component {
 
                         { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
                     </section> }
+                {nodata_alert}
                 <div className="bottom-panel">
                     { this.state.loading
                         ? <EmptyStatePanel loading title={_("Loading...")} />
-                        : <Button onClick={this.handleMoreData}>{_("Load more data")}</Button> }
+                        : <Button onClick={this.handleMoreData}>{_("Load earlier data")}</Button> }
                 </div>
             </>
         );

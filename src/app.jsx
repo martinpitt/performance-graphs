@@ -33,6 +33,20 @@ const SVG_YMAX = (SAMPLES_PER_MIN - 1).toString();
 const LOAD_HOURS = 12;
 const _ = cockpit.gettext;
 
+// keep track of maximum values for unbounded data, so that we can normalize it properly
+// pre-init them to avoid inflating noise
+var scaleSatCPU = 4;
+var scaleUseDisks = 10000; // KB/s
+var scaleUseNetwork = 100000; // B/s
+
+// round up to the nearest number that has all zeroes except for the first digit
+// avoids over-aggressive scaling, but needs scaling more often
+const scaleForValue = x => {
+    const scale = Math.pow(10, Math.floor(Math.log10(x)));
+    // this can be tweaked towards "less rescaling" with an additional scalar, like "x * 1.5 / scale"
+    return Math.ceil(x / scale) * scale;
+};
+
 const RESOURCES = {
     use_cpu: {
         name: _("CPU usage"),
@@ -44,8 +58,8 @@ const RESOURCES = {
     sat_cpu: {
         name: _("Load"),
         event_description: _("Load spike"),
-        // unitless, unbounded; clip at 10; FIXME: some better normalization
-        normalize: load => Math.min(load, 10) / 10,
+        // unitless, unbounded, dynamic scaling for normalization
+        normalize: load => Math.min(load, scaleSatCPU) / scaleSatCPU,
         format: load => cockpit.format_number(load),
     },
     use_memory: {
@@ -66,15 +80,15 @@ const RESOURCES = {
     use_disks: {
         name: _("Disk I/O"),
         event_description: _("Disk I/O spike"),
-        // kB/s, unbounded, clip at 100MB/s; FIXME: some better normalization
-        normalize: kBps => Math.min(kBps, 100000) / 100000,
+        // kB/s, unbounded, dynamic scaling for normalization
+        normalize: kBps => kBps / scaleUseDisks,
         format: kBps => cockpit.format_bytes_per_sec(kBps * 1024),
     },
     use_network: {
         name: _("Network I/O"),
         event_description: _("Network I/O spike"),
-        // B/s, unbounded, clip at 100MB/s; FIXME: some better normalization
-        normalize: bps => Math.min(bps, 100000000) / 100000000,
+        // B/s, unbounded, dynamic scaling for normalization
+        normalize: bps => bps / scaleUseNetwork,
         format: bps => cockpit.format_bytes_per_sec(bps),
     },
 };
@@ -344,15 +358,25 @@ class MetricsHistory extends React.Component {
                     }
                 });
 
+                // TODO: eventually track/display this by-interface?
+                const use_network = current_sample[NET_TOTAL_INDEX].reduce((acc, cur) => acc + cur, 0);
+
                 this.data[current_hour][hour_index] = {
                     use_cpu: [current_sample[0], current_sample[1], current_sample[2]],
                     sat_cpu: current_sample[LOAD_INDEX],
                     use_memory: [current_sample[4], current_sample[5]],
                     sat_memory: current_sample[6],
                     use_disks: current_sample[7],
-                    // TODO: eventually track/display this by-interface?
-                    use_network: current_sample[NET_TOTAL_INDEX].reduce((acc, cur) => acc + cur, 0),
+                    use_network,
                 };
+
+                // keep track of maximums of unbounded values, for dynamic scaling
+                if (current_sample[LOAD_INDEX] > scaleSatCPU)
+                    scaleSatCPU = scaleForValue(current_sample[LOAD_INDEX]);
+                if (current_sample[7] > scaleUseDisks)
+                    scaleUseDisks = scaleForValue(current_sample[7]);
+                if (use_network > scaleUseNetwork)
+                    scaleUseNetwork = scaleForValue(use_network);
 
                 if (++hour_index === SAMPLES_PER_H) {
                     current_hour += MSEC_PER_H;

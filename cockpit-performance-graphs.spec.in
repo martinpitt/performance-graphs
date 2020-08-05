@@ -1,14 +1,15 @@
-Name: cockpit-starter-kit
+Name: cockpit-performance-graphs
 Version: %{VERSION}
 Release: 1%{?dist}
 Summary: Cockpit Starter Kit Example Module
 License: LGPLv2+
 
-Source: cockpit-starter-kit-%{version}.tar.gz
+Source: cockpit-performance-graphs-%{version}.tar.gz
 BuildArch: noarch
 BuildRequires:  libappstream-glib
 
 Requires: cockpit-system
+Recommends: cockpit-pcp
 
 %define debug_package %{nil}
 
@@ -16,7 +17,7 @@ Requires: cockpit-system
 Cockpit Starter Kit Example Module
 
 %prep
-%setup -n cockpit-starter-kit
+%setup -n cockpit-performance-graphs
 
 %install
 %make_install

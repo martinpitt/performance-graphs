@@ -52,7 +52,7 @@ tree. To do that, link that to the location were `cockpit-bridge` looks for pack
 
 ```
 mkdir -p ~/.local/share/cockpit
-ln -s `pwd`/dist ~/.local/share/cockpit/starter-kit
+ln -s `pwd`/dist ~/.local/share/cockpit/performance-graphs
 ```
 
 After changing the code and running `make` again, reload the Cockpit page in
@@ -104,15 +104,6 @@ the VM, possibly with extra options for tracing and halting on test failures
 You can also run the test against a different Cockpit image, for example:
 
     TEST_OS=fedora-32 make check
-
-# Customizing
-
-After cloning the Starter Kit you should rename the files, package names, and
-labels to your own project's name. Use these commands to find out what to
-change:
-
-    find -iname '*starter*'
-    git grep -i starter
 
 # Automated release
 

@@ -257,6 +257,7 @@ class MetricsHistory extends React.Component {
             hours: [], // available hours for rendering in descending order
             loading: true, // show loading indicator
             metricsAvailable: true,
+            loadingHistoric: false,
             error: null,
         };
 
@@ -278,6 +279,9 @@ class MetricsHistory extends React.Component {
     }
 
     load_data(load_timestamp, limit) {
+        if (limit)
+            this.setState({ loadingHistoric: true });
+
         this.oldest_timestamp = this.oldest_timestamp > load_timestamp || this.oldest_timestamp === 0 ? load_timestamp : this.oldest_timestamp;
         let current_hour; // hour of timestamp, from most recent meta message
         let hour_index; // index within data[current_hour] array
@@ -377,7 +381,12 @@ class MetricsHistory extends React.Component {
                 // sort in descending order
                 hours.sort((a, b) => b - a);
                 // re-render
-                this.setState({ hours, loading: false });
+                const new_state = { hours, loading: false };
+                if (limit) {
+                    new_state.loadingHistoric = false;
+                }
+
+                this.setState(new_state);
 
                 // trigger automatic update every minute
                 if (!limit)
@@ -423,7 +432,9 @@ class MetricsHistory extends React.Component {
                     { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
                 </section>
                 <div className="bottom-panel">
-                    <Button onClick={this.handleMoreData}>{_("Load more data")}</Button>
+                    { this.state.loadingHistoric
+                        ? <span>{_("Loading...")}</span>
+                        : <Button onClick={this.handleMoreData}>{_("Load more data")}</Button> }
                 </div>
             </>
         );

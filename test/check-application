@@ -5,6 +5,7 @@
 
 import os
 import sys
+import time
 
 # import Cockpit's machinery for test VMs and its browser test API
 TEST_DIR = os.path.dirname(__file__)
@@ -42,6 +43,27 @@ class TestApplication(testlib.MachineCase):
         b.wait_in_text(".metrics .pf-c-alert", year)
         # still only one hour
         b.wait_js_func("ph_count_check", ".metrics-hour", 1)
+
+        # should only have at most three valid minutes, the rest should be empty
+        valid_start = b.call_js_func("ph_count", ".metrics-data-cpu.valid-data")
+        self.assertLessEqual(valid_start, 3)
+        # leave one minute wiggle room, in case the page updates between these two checks
+        self.assertGreaterEqual(b.call_js_func("ph_count", ".metrics-data-cpu.empty-data"), 59 - valid_start)
+        # page auto-updates every minute
+        with b.wait_timeout(90):
+            b.wait_js_func("(exp => ph_count('.metrics-data-cpu.valid-data') == exp)", valid_start + 1)
+
+        # there are often some initial events at machine startup
+        initial_events = b.call_js_func("ph_count", ".metrics-events")
+
+        # memory saturation event
+        mem_hog = m.spawn("MEMBLOB=$(yes | dd bs=1M count=500 iflag=fullblock); sleep infinity", "mem_hog.log")
+        time.sleep(30)
+        m.execute("kill %d" % mem_hog)
+        # UI auto-updates every minute, so it should pick up the new spike within the next 30s
+        b.wait_js_func("(exp => ph_count('.metrics-events') == exp)", initial_events + 1)
+        # in our CI this ends up as a net swap event, and no actual used memory increase
+        b.wait_in_text(".metrics-events:last-of-type", "Swap")
 
     @testlib.nondestructive
     def testNoData(self):

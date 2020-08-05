@@ -9,7 +9,7 @@
 
  * CPU utilization:
 
-        dd if=/dev/urandom of=/dev/null bs=1M
+        dd if=/dev/urandom of=/dev/null bs=1M count=10000
 
  * CPU saturation (high load):
 

@@ -271,7 +271,6 @@ class MetricsHistory extends React.Component {
             hours: [], // available hours for rendering in descending order
             loading: true, // show loading indicator
             metricsAvailable: true,
-            loadingHistoric: false,
             error: null,
         };
 
@@ -293,8 +292,7 @@ class MetricsHistory extends React.Component {
     }
 
     load_data(load_timestamp, limit) {
-        if (limit)
-            this.setState({ loadingHistoric: true });
+        this.setState({ loading: true });
 
         this.oldest_timestamp = this.oldest_timestamp > load_timestamp || this.oldest_timestamp === 0 ? load_timestamp : this.oldest_timestamp;
         let current_hour; // hour of timestamp, from most recent meta message
@@ -405,12 +403,7 @@ class MetricsHistory extends React.Component {
                 // sort in descending order
                 hours.sort((a, b) => b - a);
                 // re-render
-                const new_state = { hours, loading: false };
-                if (limit) {
-                    new_state.loadingHistoric = false;
-                }
-
-                this.setState(new_state);
+                this.setState({ hours, loading: false });
 
                 // trigger automatic update every minute
                 if (!limit)
@@ -422,9 +415,6 @@ class MetricsHistory extends React.Component {
     }
 
     render() {
-        if (this.state.loading)
-            return <EmptyStatePanel loading title={_("Loading...")} />;
-
         if (cockpit.manifests && !cockpit.manifests.pcp)
             return <EmptyStatePanel
                         icon={ExclamationCircleIcon}
@@ -446,18 +436,19 @@ class MetricsHistory extends React.Component {
 
         return (
             <>
-                <section className="metrics-history">
-                    <div className="metrics-label">{ _("Events") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
-                    <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+                { this.state.hours.length > 0 &&
+                    <section className="metrics-history">
+                        <div className="metrics-label">{ _("Events") }</div>
+                        <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
+                        <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
+                        <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
+                        <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
 
-                    { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
-                </section>
+                        { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
+                    </section> }
                 <div className="bottom-panel">
-                    { this.state.loadingHistoric
-                        ? <span>{_("Loading...")}</span>
+                    { this.state.loading
+                        ? <EmptyStatePanel loading title={_("Loading...")} />
                         : <Button onClick={this.handleMoreData}>{_("Load more data")}</Button> }
                 </div>
             </>

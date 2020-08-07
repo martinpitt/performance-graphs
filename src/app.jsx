@@ -201,7 +201,7 @@ const MetricsHour = ({ startTime, data }) => {
     for (const minute in minute_events) {
         events.push(
             <dl key={minute} className="metrics-events" style={{ "--metrics-minute": minute }}>
-                <dt><time>{ moment(startTime + (minute * 60000)).format('hh:mm') }</time></dt>
+                <dt><time>{ moment(startTime + (minute * 60000)).format('LT') }</time></dt>
                 { minute_events[minute].map(t => <dd key={ t }>{ RESOURCES[t].event_description }</dd>) }
             </dl>);
     }

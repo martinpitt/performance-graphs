@@ -6,6 +6,7 @@
 import os
 import sys
 import time
+import datetime
 
 # import Cockpit's machinery for test VMs and its browser test API
 TEST_DIR = os.path.dirname(__file__)
@@ -15,6 +16,20 @@ import testlib
 
 
 class TestApplication(testlib.MachineCase):
+
+    def getMaximumSpike(self, g_type, saturation, hour, minute):
+        b = self.browser
+        sel = "#metrics-hour-{0} div.metrics-data-{1}[style='--metrics-minute:{2};'] polygon".format(hour, g_type, minute)
+        if saturation:
+            sel += ":nth-child(2)"
+        else:
+            sel += ":first-child"
+
+        points = b.attr(sel, "points").split(" ")
+        xs = [float(x.split(",")[0]) for x in points]
+
+        return max(xs)
+
     def testBasic(self):
         b = self.browser
         m = self.machine
@@ -57,11 +72,29 @@ class TestApplication(testlib.MachineCase):
         initial_events = b.call_js_func("ph_count", ".metrics-events")
 
         # memory saturation event
+        now = datetime.datetime.now()
+        minute_start = now.minute
+        hour_start = int(datetime.datetime.timestamp(now.replace(minute=0, second=0))) * 1000
+
         mem_hog = m.spawn("MEMBLOB=$(yes | dd bs=1M count=500 iflag=fullblock); sleep infinity", "mem_hog.log")
         time.sleep(30)
         m.execute("kill %d" % mem_hog)
+
+        now = datetime.datetime.now()
+        minute_end = now.minute
+        hour_end = int(datetime.datetime.timestamp(now.replace(minute=0, second=0))) * 1000
+
         # UI auto-updates every minute, so it should pick up the new spike within the next 30s
         b.wait_js_func("(exp => ph_count('.metrics-events') == exp)", initial_events + 1)
+
+        # We cannot just wait for spike, as we are not sure, in which minute it actually is (it
+        # might be in the starting minute or in the ending one).
+        # Thus just get maximum spike from both, pick the bigger and assert it is what we expect
+        start_spike = self.getMaximumSpike("memory", True, hour_start, minute_start)
+        end_spike = self.getMaximumSpike("memory", True, hour_end, minute_end)
+        spike = max(start_spike, end_spike)
+        self.assertGreaterEqual(spike, 0.9)
+
         # in our CI this ends up as a net swap event, and no actual used memory increase
         b.wait_in_text(".metrics-events:last-of-type", "Swap")
 

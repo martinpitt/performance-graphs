@@ -30,6 +30,14 @@ class TestApplication(testlib.MachineCase):
 
         return max(xs)
 
+    def prepareArchive(self, name, time):
+        self.machine.upload(["archives/{0}".format(name)], "/tmp/")
+        self.machine.execute("""timedatectl set-ntp off
+                                systemctl stop pmlogger
+                                rm -rf /var/log/pcp/pmlogger/*
+                                tar -C / -xzvf /tmp/{0}
+                                timedatectl set-time @{1}""".format(name, time))
+
     def testBasic(self):
         b = self.browser
         m = self.machine
@@ -97,6 +105,32 @@ class TestApplication(testlib.MachineCase):
 
         # in our CI this ends up as a net swap event, and no actual used memory increase
         b.wait_in_text(".metrics-events:last-of-type", "Swap")
+
+    def testDisks(self):
+        b = self.browser
+        m = self.machine
+
+        self.prepareArchive("disk.tar.gz", 1597672800)
+
+        self.login_and_go("/performance-graphs")
+        # eventually finishes data loading and shows heading
+        b.wait_in_text(".metrics-history", "Events")
+        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_present(".metrics-hour .metrics-data-cpu")
+
+        # Big spike lasting 3 minutes
+        self.assertGreaterEqual(self.getMaximumSpike("disks", False, 1597662000000, 25), 0.9)
+        self.assertGreaterEqual(self.getMaximumSpike("disks", False, 1597662000000, 26), 0.9)
+        self.assertGreaterEqual(self.getMaximumSpike("disks", False, 1597662000000, 27), 0.9)
+
+        # Smaller spike lasting 2 minutes
+        self.assertGreaterEqual(self.getMaximumSpike("disks", False, 1597662000000, 28), 0.4)
+        self.assertLessEqual(self.getMaximumSpike("disks", False, 1597662000000, 28), 0.6)
+        self.assertGreaterEqual(self.getMaximumSpike("disks", False, 1597662000000, 29), 0.4)
+
+        # No visible activity after that
+        self.assertLessEqual(self.getMaximumSpike("disks", False, 1597662000000, 30), 0.01)
+
 
     @testlib.nondestructive
     def testNoData(self):

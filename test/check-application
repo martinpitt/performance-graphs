@@ -228,6 +228,27 @@ class TestApplication(testlib.MachineCase):
         m.execute("dd if=/dev/zero of=/var/cockpittest/blob bs=1M count=40")
         b.wait(lambda: progressValue(".pf-c-progress[data-disk-usage-target='/var/cockpittest']") >= 90)
 
+        # Network usage
+
+        # has expected interfaces
+        b.wait_in_text("[aria-label='Network usage'] [data-interface='virbr0']", "virbr0")
+        b.wait_in_text("[aria-label='Network usage'] [data-interface='lo']", "lo")
+
+        def rateMatches(label, regexp):
+            text = b.text("[aria-label='Network usage'] [data-interface='lo'] td[data-label='%s']" % label)
+            return re.match(regexp, text) is not None
+
+        # loopback is quiet enough to not transmit MB/s
+        in_rate = b.text("[aria-label='Network usage'] [data-interface='lo'] td[data-label='In']")
+        out_rate = b.text("[aria-label='Network usage'] [data-interface='lo'] td[data-label='Out']")
+        b.wait(lambda: rateMatches("In", r'^[0-9.]+ (KiB|B)/s$'))
+        b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (KiB|B)/s$'))
+        # pipe lots of data through lo
+        lo_hog = m.spawn("nc -l 2000 > /dev/null & nc localhost 2000 </dev/zero", "lo_hog")
+        b.wait(lambda: rateMatches("In", r'^[0-9.]+ (MiB|GiB)/s$'))
+        b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (MiB|GiB)/s$'))
+        m.execute("kill %d" % lo_hog)
+
 
 if __name__ == '__main__':
     testlib.test_main()

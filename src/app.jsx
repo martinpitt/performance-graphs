@@ -28,6 +28,7 @@ import {
     Page, PageSection,
     Progress, ProgressVariant,
 } from '@patternfly/react-core';
+import { Table, TableHeader, TableBody, TableVariant, RowWrapper } from '@patternfly/react-table';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 import './app.scss';
 
@@ -108,7 +109,11 @@ const CURRENT_METRICS = [
     { name: "cpu.basic.system", derive: "rate" },
     { name: "cpu.basic.nice", derive: "rate" },
     { name: "memory.used" },
+    { name: "network.interface.rx", units: "bytes", derive: "rate" },
+    { name: "network.interface.tx", units: "bytes", derive: "rate" },
 ];
+
+const CURRENT_METRICS_INIT = [null, null, null, null, [], []];
 
 const HISTORY_METRICS = [
     // CPU utilization
@@ -143,14 +148,17 @@ class CurrentMetrics extends React.Component {
         super(props);
 
         this.metrics_channel = null;
-        this.samples = [];
+        this.samples = CURRENT_METRICS_INIT.slice();
+        this.netInterfacesNames = [];
 
         this.state = {
             memTotal: 0, // GiB
             memUsed: 0, // GiB
             numCpu: 1, // number
             cpuUsed: 0, // percentage
-            mounts: [] // [{ target (string), use (percent), avail (bytes) }]
+            mounts: [], // [{ target (string), use (percent), avail (bytes) }]
+            netInterfacesRx: [],
+            netInterfacesTx: [],
         };
 
         machine_info.cpu_ram_info().done(info => this.setState({
@@ -222,15 +230,24 @@ class CurrentMetrics extends React.Component {
 
         // reset state on meta messages
         if (!Array.isArray(data)) {
-            this.samples = [];
+            this.samples = CURRENT_METRICS_INIT.slice();
+            console.assert(data.metrics[4].name === 'network.interface.rx');
+            this.netInterfacesNames = data.metrics[4].instances.slice();
+            console.log("XXX metrics message was meta, new net instance names", JSON.stringify(this.netInterfacesNames));
             return;
         }
 
         // decompress
         data.forEach(samples => {
             samples.forEach((sample, i) => {
-                if (sample !== null)
+                if (sample instanceof Array) {
+                    sample.forEach((inst, k) => {
+                        if (inst !== null)
+                            this.samples[i][k] = inst;
+                    });
+                } else if (sample !== null) {
                     this.samples[i] = sample;
+                }
             });
         });
 
@@ -239,13 +256,23 @@ class CurrentMetrics extends React.Component {
             const cpu = Math.round((this.samples[0] + this.samples[1] + this.samples[2]) / 10 / this.state.numCpu);
             this.setState({ cpuUsed: cpu });
         }
-        this.setState({ memUsed: Number((this.samples[3] / (1024 * 1024 * 1024)).toFixed(1)) });
+        this.setState({
+            memUsed: Number((this.samples[3] / (1024 * 1024 * 1024)).toFixed(1)),
+            netInterfacesRx: this.samples[4],
+            netInterfacesTx: this.samples[5],
+        });
     }
 
     render() {
         const fraction = this.state.memUsed / this.state.memTotal;
         const memAvail = this.state.memTotal - this.state.memUsed;
         const num_cpu_str = cockpit.format(cockpit.ngettext("$0 CPU", "$0 CPUs", this.state.numCpu), this.state.numCpu);
+
+        const netIO = this.netInterfacesNames.map((iface, i) => [
+            iface,
+            cockpit.format_bytes_per_sec(this.state.netInterfacesRx[i]),
+            cockpit.format_bytes_per_sec(this.state.netInterfacesTx[i]),
+        ]);
 
         return (
             <Gallery className="current-metrics" hasGutter>
@@ -287,6 +314,21 @@ class CurrentMetrics extends React.Component {
                             title={info.target}
                             label={ cockpit.format(_("$0 free / $1 total"), cockpit.format_bytes(info.avail, 1000), cockpit.format_bytes(info.size, 1000)) } />)
                     }
+                    </CardBody>
+                </Card>
+
+                <Card>
+                    <CardTitle>{ _("Network") }</CardTitle>
+                    <CardBody>
+                        <Table
+                            variant={TableVariant.compact}
+                            borders={false}
+                            aria-label={ _("Network usage") }
+                            cells={ [_("Interface"), _("In"), _("Out")] } rows={netIO}
+                            rowWrapper={ props => <RowWrapper data-interface={ props.row[0] } {...props} /> }>
+                            <TableHeader />
+                            <TableBody />
+                        </Table>
                     </CardBody>
                 </Card>
             </Gallery>);

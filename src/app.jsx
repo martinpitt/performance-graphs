@@ -150,6 +150,7 @@ class CurrentMetrics extends React.Component {
             memUsed: 0, // GiB
             numCpu: 1, // number
             cpuUsed: 0, // percentage
+            mounts: [] // [{ target (string), use (percent), avail (bytes) }]
         };
 
         machine_info.cpu_ram_info().done(info => this.setState({
@@ -159,9 +160,14 @@ class CurrentMetrics extends React.Component {
 
         this.onVisibilityChange = this.onVisibilityChange.bind(this);
         this.onMetricsUpdate = this.onMetricsUpdate.bind(this);
+        this.getMounts = this.getMounts.bind(this);
 
         cockpit.addEventListener("visibilitychange", this.onVisibilityChange);
         this.onVisibilityChange();
+
+        // regularly update info about file systems
+        this.getMounts();
+        window.setInterval(this.getMounts, 10000);
     }
 
     onVisibilityChange() {
@@ -177,6 +183,37 @@ class CurrentMetrics extends React.Component {
             this.metrics_channel.addEventListener("closed", (ev, error) => console.error("metrics closed:", error));
             this.metrics_channel.addEventListener("message", this.onMetricsUpdate);
         }
+    }
+
+    getMounts() {
+        /* df often exits with non-zero if it encounters any file system it can't read; but that's fine, get info about all the
+         * others */
+        cockpit.script("df --local --exclude-type=tmpfs --exclude-type=devtmpfs --block-size=1 --output=target,size,avail,pcent || true",
+                       { err: "message" })
+                .then(output => {
+                    // skip first line with the headings
+                    const mounts = [];
+                    output.trim()
+                            .split("\n")
+                            .slice(1)
+                            .forEach(s => {
+                                const fields = s.split(/ +/);
+                                if (fields.length != 4) {
+                                    console.warn("Invalid line in df:", s);
+                                    return;
+                                }
+                                mounts.push({
+                                    target: fields[0],
+                                    size: Number(fields[1]),
+                                    avail: Number(fields[2]),
+                                    use: Number(fields[3].slice(0, -1)), /* strip off '%' */
+                                });
+                            });
+
+                    console.log("XXX df parsing done:", JSON.stringify(mounts));
+                    this.setState({ mounts });
+                })
+                .catch(ex => console.warn("Failed to run df:", ex.toString()));
     }
 
     onMetricsUpdate(event, message) {
@@ -235,6 +272,21 @@ class CurrentMetrics extends React.Component {
                             variant={fraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
                             title=" "
                             label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, this.state.memTotal) } />
+                    </CardBody>
+                </Card>
+
+                <Card>
+                    <CardTitle>{ _("Disks") }</CardTitle>
+                    <CardBody className="progress-stack">{
+                        this.state.mounts.map(info => <Progress
+                            data-disk-usage-target={info.target}
+                            key={info.target}
+                            value={ info.use } min={0} max={100}
+                            className="pf-m-sm"
+                            variant={info.use > 90 ? ProgressVariant.danger : ProgressVariant.info}
+                            title={info.target}
+                            label={ cockpit.format(_("$0 free / $1 total"), cockpit.format_bytes(info.avail, 1000), cockpit.format_bytes(info.size, 1000)) } />)
+                    }
                     </CardBody>
                 </Card>
             </Gallery>);

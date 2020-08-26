@@ -1,3 +1,20 @@
+#app {
+    height: 100%;
+}
+
+// FIXME: More styles from ct-system-overview
+.current-metrics {
+  --card-width: 22rem;
+  --pf-l-gallery--GridTemplateColumns: repeat(auto-fill, minmax(var(--card-width), 1fr));
+
+  .pf-c-card {
+      &__title {
+          font-size: var(--pf-global--FontSize--xl);
+          font-weight: var(--pf-global--FontWeight--normal);
+      }
+  }
+}
+
 .metrics {
     --column-size: minmax(5rem, 10vw);
     --data-min-height:5px;

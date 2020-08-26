@@ -21,9 +21,17 @@ import cockpit from 'cockpit';
 import React from 'react';
 import moment from "moment";
 import { EmptyStatePanel } from "../lib/cockpit-components-empty-state.jsx";
-import { Alert, Button } from '@patternfly/react-core';
+import {
+    Alert,
+    Button,
+    Card, CardTitle, CardBody, Gallery,
+    Page, PageSection,
+    Progress, ProgressVariant,
+} from '@patternfly/react-core';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 import './app.scss';
+
+import * as machine_info from "../lib/machine-info.js";
 
 const MSEC_PER_H = 3600000;
 const INTERVAL = 5000;
@@ -95,6 +103,13 @@ const RESOURCES = {
     },
 };
 
+const CURRENT_METRICS = [
+    { name: "cpu.basic.user", derive: "rate" },
+    { name: "cpu.basic.system", derive: "rate" },
+    { name: "cpu.basic.nice", derive: "rate" },
+    { name: "memory.used" },
+];
+
 const HISTORY_METRICS = [
     // CPU utilization
     { name: "kernel.all.cpu.nice", derive: "rate" },
@@ -122,6 +137,109 @@ const HISTORY_METRICS = [
 // metrics with instances, which need special treatment
 const LOAD_INDEX = 3;
 const NET_TOTAL_INDEX = 8;
+
+class CurrentMetrics extends React.Component {
+    constructor(props) {
+        super(props);
+
+        this.metrics_channel = null;
+        this.samples = [];
+
+        this.state = {
+            memTotal: 0, // GiB
+            memUsed: 0, // GiB
+            numCpu: 1, // number
+            cpuUsed: 0, // percentage
+        };
+
+        machine_info.cpu_ram_info().done(info => this.setState({
+            memTotal: Number((info.memory / (1024 * 1024 * 1024)).toFixed(1)),
+            numCpu: info.cpus,
+        }));
+
+        this.onVisibilityChange = this.onVisibilityChange.bind(this);
+        this.onMetricsUpdate = this.onMetricsUpdate.bind(this);
+
+        cockpit.addEventListener("visibilitychange", this.onVisibilityChange);
+        this.onVisibilityChange();
+    }
+
+    onVisibilityChange() {
+        if (cockpit.hidden && this.metrics_channel !== null) {
+            this.metrics_channel.removeEventListener("message", this.onMetricsUpdate);
+            this.metrics_channel.close();
+            this.metrics_channel = null;
+            return;
+        }
+
+        if (!cockpit.hidden && this.metrics_channel === null) {
+            this.metrics_channel = cockpit.channel({ payload: "metrics1", source: "internal", interval: 3000, metrics: CURRENT_METRICS });
+            this.metrics_channel.addEventListener("closed", (ev, error) => console.error("metrics closed:", error));
+            this.metrics_channel.addEventListener("message", this.onMetricsUpdate);
+        }
+    }
+
+    onMetricsUpdate(event, message) {
+        console.log("XXX current metrics message", message);
+        const data = JSON.parse(message);
+
+        // reset state on meta messages
+        if (!Array.isArray(data)) {
+            this.samples = [];
+            return;
+        }
+
+        // decompress
+        data.forEach(samples => {
+            samples.forEach((sample, i) => {
+                if (sample !== null)
+                    this.samples[i] = sample;
+            });
+        });
+
+        // CPU metrics are in ms/s; divide by 10 to get percentage
+        if (this.samples[0] !== false) {
+            const cpu = Math.round((this.samples[0] + this.samples[1] + this.samples[2]) / 10 / this.state.numCpu);
+            this.setState({ cpuUsed: cpu });
+        }
+        this.setState({ memUsed: Number((this.samples[3] / (1024 * 1024 * 1024)).toFixed(1)) });
+    }
+
+    render() {
+        const fraction = this.state.memUsed / this.state.memTotal;
+        const memAvail = this.state.memTotal - this.state.memUsed;
+        const num_cpu_str = cockpit.format(cockpit.ngettext("$0 CPU", "$0 CPUs", this.state.numCpu), this.state.numCpu);
+
+        return (
+            <Gallery className="current-metrics" hasGutter>
+                <Card>
+                    <CardTitle>{ _("CPU") }</CardTitle>
+                    <CardBody>
+                        <Progress
+                            id="current-cpu-usage"
+                            value={this.state.cpuUsed}
+                            className="pf-m-sm"
+                            min={0} max={100}
+                            variant={ this.state.cpuUsed > 90 ? ProgressVariant.danger : ProgressVariant.info }
+                            title={ num_cpu_str }
+                            label={ this.state.cpuUsed + '% ' } />
+                    </CardBody>
+
+                    <CardTitle>{ _("Memory") }</CardTitle>
+                    <CardBody>
+                        <Progress
+                            id="current-memory-usage"
+                            value={this.state.memUsed}
+                            className="pf-m-sm"
+                            min={0} max={Number(this.state.memTotal)}
+                            variant={fraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
+                            title=" "
+                            label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, this.state.memTotal) } />
+                    </CardBody>
+                </Card>
+            </Gallery>);
+    }
+}
 
 const SvgGraph = ({ data, resource }) => {
     const dataPoints = key => (
@@ -310,7 +428,7 @@ class MetricsHistory extends React.Component {
         });
 
         metrics.addEventListener("message", (event, message) => {
-            console.log("XXX metrics message", message);
+            console.log("XXX history metrics message", message);
             message = JSON.parse(message);
 
             const init_current_hour = () => {
@@ -448,7 +566,7 @@ class MetricsHistory extends React.Component {
         }
 
         return (
-            <>
+            <div className="metrics">
                 { this.state.hours.length > 0 &&
                     <section className="metrics-history">
                         <div className="metrics-label">{ _("Events") }</div>
@@ -465,13 +583,18 @@ class MetricsHistory extends React.Component {
                         ? <EmptyStatePanel loading title={_("Loading...")} />
                         : <Button onClick={this.handleMoreData}>{_("Load earlier data")}</Button> }
                 </div>
-            </>
+            </div>
         );
     }
 }
 
 export const Application = () => (
-    <div className="metrics">
-        <MetricsHistory />
-    </div>
+    <Page>
+        <PageSection>
+            <CurrentMetrics />
+        </PageSection>
+        <PageSection>
+            <MetricsHistory />
+        </PageSection>
+    </Page>
 );

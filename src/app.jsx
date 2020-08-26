@@ -33,6 +33,8 @@ const SVG_YMAX = (SAMPLES_PER_MIN - 1).toString();
 const LOAD_HOURS = 12;
 const _ = cockpit.gettext;
 
+moment.locale(cockpit.language);
+
 // keep track of maximum values for unbounded data, so that we can normalize it properly
 // pre-init them to avoid inflating noise
 var scaleSatCPU = 4;
@@ -93,7 +95,7 @@ const RESOURCES = {
     },
 };
 
-const METRICS = [
+const HISTORY_METRICS = [
     // CPU utilization
     { name: "kernel.all.cpu.nice", derive: "rate" },
     { name: "kernel.all.cpu.user", derive: "rate" },
@@ -120,8 +122,6 @@ const METRICS = [
 // metrics with instances, which need special treatment
 const LOAD_INDEX = 3;
 const NET_TOTAL_INDEX = 8;
-
-moment.locale(cockpit.language);
 
 const SvgGraph = ({ data, resource }) => {
     const dataPoints = key => (
@@ -297,7 +297,7 @@ class MetricsHistory extends React.Component {
         this.oldest_timestamp = this.oldest_timestamp > load_timestamp || this.oldest_timestamp === 0 ? load_timestamp : this.oldest_timestamp;
         let current_hour; // hour of timestamp, from most recent meta message
         let hour_index; // index within data[current_hour] array
-        const current_sample = Array(METRICS.length).fill(null); // last valid value, for decompression
+        const current_sample = Array(HISTORY_METRICS.length).fill(null); // last valid value, for decompression
         const new_hours = new Set(); // newly seen hours during this load
 
         const metrics = cockpit.channel({
@@ -306,7 +306,7 @@ class MetricsHistory extends React.Component {
             source: "pcp-archive",
             timestamp: load_timestamp,
             limit: limit,
-            metrics: METRICS,
+            metrics: HISTORY_METRICS,
         });
 
         metrics.addEventListener("message", (event, message) => {
@@ -418,13 +418,13 @@ class MetricsHistory extends React.Component {
         if (cockpit.manifests && !cockpit.manifests.pcp)
             return <EmptyStatePanel
                         icon={ExclamationCircleIcon}
-                        title={_("Package cockpit-pcp is missing")}
+                        title={_("Package cockpit-pcp is missing for metrics history")}
                         action={<Button onClick={() => console.log("Installing cockpit-pcp...")}>{_("Install cockpit-pcp")}</Button>} />;
 
         if (!this.state.metricsAvailable)
             return <EmptyStatePanel
                         icon={ExclamationCircleIcon}
-                        title={_("Metrics could not be loaded")}
+                        title={_("Metrics history could not be loaded")}
                         paragraph={_("Is 'pmlogger' service running?")}
                         action={<Button variant="link" onClick={() => cockpit.jump("/system/services#/pmlogger.service") }>{_("Troubleshoot")}</Button>} />;
 

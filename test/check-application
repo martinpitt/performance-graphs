@@ -208,6 +208,26 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: progressValue("#current-memory-usage") <= initial_usage)
         self.assertGreater(progressValue("#current-memory-usage"), 10)
 
+        # Disk usage
+
+        # add 50 MB loopback disk
+        m.execute("""set -e
+                  F=$(mktemp /var/tmp/loop.XXXX)
+                  dd if=/dev/zero of=$F bs=1M count=50
+                  mkfs -t ext3 $F
+                  mkdir -p /var/cockpittest
+                  mount -o loop $F /var/cockpittest
+                  rm $F
+                  """)
+        self.addCleanup(self.machine.execute, "umount /var/cockpittest")
+        self.assertLess(progressValue(".pf-c-progress[data-disk-usage-target='/var/cockpittest']"), 5)
+        free = b.text(".pf-c-progress[data-disk-usage-target='/var/cockpittest'] .pf-c-progress__status")
+        # anything between 40 and 50 MB
+        self.assertRegex(free, "^4\d\.\d MB free / 4\d\.\d MB total$")
+
+        m.execute("dd if=/dev/zero of=/var/cockpittest/blob bs=1M count=40")
+        b.wait(lambda: progressValue(".pf-c-progress[data-disk-usage-target='/var/cockpittest']") >= 90)
+
 
 if __name__ == '__main__':
     testlib.test_main()

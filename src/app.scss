@@ -12,6 +12,16 @@
           font-size: var(--pf-global--FontSize--xl);
           font-weight: var(--pf-global--FontWeight--normal);
       }
+
+      .progress-stack {
+          display: grid;
+          padding: var(--pf-global--spacer--lg) 0;
+          grid-gap: var(--pf-global--spacer--xl) var(--pf-global--spacer--2xl);
+      }
+  }
+
+  .pf-c-progress {
+      grid-gap: 0;
   }
 }
 

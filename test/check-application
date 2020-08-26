@@ -141,7 +141,7 @@ class TestApplication(testlib.MachineCase):
         self.addCleanup(m.execute, "umount /var/log/pcp/pmlogger")
 
         self.login_and_go("/performance-graphs")
-        b.wait_in_text(".pf-c-empty-state", "Metrics could not be loaded")
+        b.wait_in_text(".pf-c-empty-state", "Metrics history could not be loaded")
         # Troubleshoot
         b.click(".pf-c-empty-state button.pf-m-link")
         b.enter_page("/system/services")

@@ -109,11 +109,13 @@ const CURRENT_METRICS = [
     { name: "cpu.basic.system", derive: "rate" },
     { name: "cpu.basic.nice", derive: "rate" },
     { name: "memory.used" },
+    { name: "disk.all.read", units: "bytes", derive: "rate" },
+    { name: "disk.all.written", units: "bytes", derive: "rate" },
     { name: "network.interface.rx", units: "bytes", derive: "rate" },
     { name: "network.interface.tx", units: "bytes", derive: "rate" },
 ];
 
-const CURRENT_METRICS_INIT = [null, null, null, null, [], []];
+const CURRENT_METRICS_INIT = [null, null, null, null, null, null, [], []];
 
 const HISTORY_METRICS = [
     // CPU utilization
@@ -156,6 +158,8 @@ class CurrentMetrics extends React.Component {
             memUsed: 0, // GiB
             numCpu: 1, // number
             cpuUsed: 0, // percentage
+            disksRead: 0, // B/s
+            disksWritten: 0, // B/s
             mounts: [], // [{ target (string), use (percent), avail (bytes) }]
             netInterfacesRx: [],
             netInterfacesTx: [],
@@ -231,8 +235,8 @@ class CurrentMetrics extends React.Component {
         // reset state on meta messages
         if (!Array.isArray(data)) {
             this.samples = CURRENT_METRICS_INIT.slice();
-            console.assert(data.metrics[4].name === 'network.interface.rx');
-            this.netInterfacesNames = data.metrics[4].instances.slice();
+            console.assert(data.metrics[6].name === 'network.interface.rx');
+            this.netInterfacesNames = data.metrics[6].instances.slice();
             console.log("XXX metrics message was meta, new net instance names", JSON.stringify(this.netInterfacesNames));
             return;
         }
@@ -251,16 +255,23 @@ class CurrentMetrics extends React.Component {
             });
         });
 
+        const newState = {};
         // CPU metrics are in ms/s; divide by 10 to get percentage
         if (this.samples[0] !== false) {
             const cpu = Math.round((this.samples[0] + this.samples[1] + this.samples[2]) / 10 / this.state.numCpu);
-            this.setState({ cpuUsed: cpu });
+            newState.cpuUsed = cpu;
         }
-        this.setState({
-            memUsed: Number((this.samples[3] / (1024 * 1024 * 1024)).toFixed(1)),
-            netInterfacesRx: this.samples[4],
-            netInterfacesTx: this.samples[5],
-        });
+
+        if (this.samples[4] !== false)
+            newState.disksRead = this.samples[4];
+        if (this.samples[5] !== false)
+            newState.disksWritten = this.samples[5];
+
+        newState.memUsed = Number((this.samples[3] / (1024 * 1024 * 1024)).toFixed(1));
+        newState.netInterfacesRx = this.samples[6];
+        newState.netInterfacesTx = this.samples[7];
+
+        this.setState(newState);
     }
 
     render() {
@@ -304,16 +315,27 @@ class CurrentMetrics extends React.Component {
 
                 <Card>
                     <CardTitle>{ _("Disks") }</CardTitle>
-                    <CardBody className="progress-stack">{
-                        this.state.mounts.map(info => <Progress
-                            data-disk-usage-target={info.target}
-                            key={info.target}
-                            value={ info.use } min={0} max={100}
-                            className="pf-m-sm"
-                            variant={info.use > 90 ? ProgressVariant.danger : ProgressVariant.info}
-                            title={info.target}
-                            label={ cockpit.format(_("$0 free / $1 total"), cockpit.format_bytes(info.avail, 1000), cockpit.format_bytes(info.size, 1000)) } />)
-                    }
+                    <CardBody>
+                        <table className="disks-io">
+                            <tr>
+                                <th>{ _("Reading:") }</th>
+                                <td id="current-disks-read">{ cockpit.format_bytes_per_sec(this.state.disksRead) }</td>
+                                <th>{ _("Writing:") }</th>
+                                <td id="current-disks-write">{ cockpit.format_bytes_per_sec(this.state.disksWritten) }</td>
+                            </tr>
+                        </table>
+
+                        <div className="progress-stack"> {
+                            this.state.mounts.map(info => <Progress
+                                data-disk-usage-target={info.target}
+                                key={info.target}
+                                value={ info.use } min={0} max={100}
+                                className="pf-m-sm"
+                                variant={info.use > 90 ? ProgressVariant.danger : ProgressVariant.info}
+                                title={info.target}
+                                label={ cockpit.format(_("$0 free / $1 total"), cockpit.format_bytes(info.avail, 1000), cockpit.format_bytes(info.size, 1000)) } />)
+                        }
+                        </div>
                     </CardBody>
                 </Card>
 

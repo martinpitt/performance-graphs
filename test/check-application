@@ -208,6 +208,25 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: progressValue("#current-memory-usage") <= initial_usage)
         self.assertGreater(progressValue("#current-memory-usage"), 10)
 
+        # Disk I/O
+
+        # test env should be quiet enough to not transmit MB/s
+        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))
+        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))
+        # reading lots of data
+        disk_read_hog = m.spawn("grep -r . /usr >/dev/null", "disk_read_hog.log")
+        b.wait(lambda: re.match(r'^[0-9.]+ (MiB|GiB)/s$', b.text("#current-disks-read")))
+        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))  # this should stay calm
+        m.execute("kill %d" % disk_read_hog)
+        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))  # back to quiet
+        # writing lots of data
+        disk_write_hog = m.spawn("while true; do dd if=/dev/zero of=/var/tmp/blob bs=1M count=100; done", "disk_write_hog.log")
+        self.addCleanup(self.machine.execute, "rm -f /var/tmp/blob")
+        b.wait(lambda: re.match(r'^[0-9.]+ (MiB|GiB)/s$', b.text("#current-disks-write")))
+        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))  # this should stay calm
+        m.execute("kill %d" % disk_write_hog)
+        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))
+
         # Disk usage
 
         # add 50 MB loopback disk

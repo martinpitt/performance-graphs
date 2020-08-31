@@ -23,6 +23,15 @@
   .pf-c-progress {
       grid-gap: 0;
   }
+
+  .disks-io {
+       th {
+           padding-right: 0.5em;
+       }
+       td {
+           padding-right: 1em;
+       }
+  }
 }
 
 .metrics {

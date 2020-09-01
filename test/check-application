@@ -314,5 +314,27 @@ class TestApplication(testlib.MachineCase):
         m.execute("kill %d" % lo_hog)
 
 
+class TestMultiCPU(testlib.MachineCase):
+
+    provision = {
+        "0": {"cpus": 2}
+    }
+
+    def testCPUUsage(self):
+        b = self.browser
+        m = self.machine
+
+        prepareArchive(m, "2corescpu.tar.gz", 1598971635)
+        self.login_and_go("/performance-graphs")
+
+        # one core is busy, the other idle -- that should be 50% total usage systemctl stop pmlogger
+        self.assertGreaterEqual(getMaximumSpike(b, "cpu", False, 1598968800000, 44), 0.2)
+        self.assertLessEqual(getMaximumSpike(b, "cpu", False, 1598968800000, 44), 0.55)
+
+        # next minute, both cores are busy
+        self.assertGreaterEqual(getMaximumSpike(b, "cpu", False, 1598968800000, 45), 0.5)
+        self.assertLessEqual(getMaximumSpike(b, "cpu", False, 1598968800000, 45), 1.0)
+
+
 if __name__ == '__main__':
     testlib.test_main()

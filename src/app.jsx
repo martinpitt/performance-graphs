@@ -50,6 +50,14 @@ var scaleSatCPU = 4;
 var scaleUseDisks = 10000; // KB/s
 var scaleUseNetwork = 100000; // B/s
 
+var numCpu = 1;
+var memTotal; // GiB
+var machine_info_promise = machine_info.cpu_ram_info();
+machine_info_promise.then(info => {
+    numCpu = info.cpus;
+    memTotal = Number((info.memory / (1024 * 1024 * 1024)).toFixed(1));
+});
+
 // round up to the nearest number that has all zeroes except for the first digit
 // avoids over-aggressive scaling, but needs scaling more often
 const scaleForValue = x => {
@@ -63,7 +71,7 @@ const RESOURCES = {
         name: _("CPU usage"),
         event_description: _("CPU spike"),
         // all in msec/s
-        normalize: ([nice, user, sys]) => (nice + user + sys) / 1000,
+        normalize: ([nice, user, sys]) => (nice + user + sys) / 1000 / numCpu,
         format: ([nice, user, sys]) => `${_("nice")}: ${Math.round(nice / 10)}%, ${_("user")}: ${Math.round(user / 10)}%, ${_("sys")}: ${Math.round(sys / 10)}%`,
     },
     sat_cpu: {
@@ -166,9 +174,7 @@ class CurrentMetrics extends React.Component {
         this.netInterfacesNames = [];
 
         this.state = {
-            memTotal: 0, // GiB
             memUsed: 0, // GiB
-            numCpu: 1, // number
             cpuUsed: 0, // percentage
             disksRead: 0, // B/s
             disksWritten: 0, // B/s
@@ -176,11 +182,6 @@ class CurrentMetrics extends React.Component {
             netInterfacesRx: [],
             netInterfacesTx: [],
         };
-
-        machine_info.cpu_ram_info().done(info => this.setState({
-            memTotal: Number((info.memory / (1024 * 1024 * 1024)).toFixed(1)),
-            numCpu: info.cpus,
-        }));
 
         this.onVisibilityChange = this.onVisibilityChange.bind(this);
         this.onMetricsUpdate = this.onMetricsUpdate.bind(this);
@@ -258,7 +259,7 @@ class CurrentMetrics extends React.Component {
         const newState = {};
         // CPU metrics are in ms/s; divide by 10 to get percentage
         if (this.samples[0] !== false) {
-            const cpu = Math.round((this.samples[0] + this.samples[1] + this.samples[2]) / 10 / this.state.numCpu);
+            const cpu = Math.round((this.samples[0] + this.samples[1] + this.samples[2]) / 10 / numCpu);
             newState.cpuUsed = cpu;
         }
 
@@ -275,9 +276,9 @@ class CurrentMetrics extends React.Component {
     }
 
     render() {
-        const fraction = this.state.memUsed / this.state.memTotal;
-        const memAvail = Number(this.state.memTotal - this.state.memUsed).toFixed(1);
-        const num_cpu_str = cockpit.format(cockpit.ngettext("$0 CPU", "$0 CPUs", this.state.numCpu), this.state.numCpu);
+        const fraction = this.state.memUsed / memTotal;
+        const memAvail = Number(memTotal - this.state.memUsed).toFixed(1);
+        const num_cpu_str = cockpit.format(cockpit.ngettext("$0 CPU", "$0 CPUs", numCpu), numCpu);
 
         const netIO = this.netInterfacesNames.map((iface, i) => [
             iface,
@@ -306,10 +307,10 @@ class CurrentMetrics extends React.Component {
                             id="current-memory-usage"
                             value={this.state.memUsed}
                             className="pf-m-sm"
-                            min={0} max={Number(this.state.memTotal)}
+                            min={0} max={memTotal}
                             variant={fraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
                             title=" "
-                            label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, this.state.memTotal) } />
+                            label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, memTotal) } />
                     </CardBody>
                 </Card>
 
@@ -512,15 +513,17 @@ class MetricsHistory extends React.Component {
 
         this.handleMoreData = this.handleMoreData.bind(this);
 
-        // load and render the last 24 hours (plus current one) initially
+        // load and render the last 24 hours (plus current one) initially; this needs numCpu initialized for correct scaling
         // FIXME: load less up-front, load more when scrolling
-        cockpit.spawn(["date", "+%s"])
-                .then(out => {
-                    const now = parseInt(out.trim()) * 1000;
-                    const current_hour = Math.floor(now / MSEC_PER_H) * MSEC_PER_H;
-                    this.load_data(current_hour - LOAD_HOURS * MSEC_PER_H);
-                })
-                .catch(ex => this.setState({ error: ex.toString() }));
+        machine_info_promise.then(() => {
+            cockpit.spawn(["date", "+%s"])
+                    .then(out => {
+                        const now = parseInt(out.trim()) * 1000;
+                        const current_hour = Math.floor(now / MSEC_PER_H) * MSEC_PER_H;
+                        this.load_data(current_hour - LOAD_HOURS * MSEC_PER_H);
+                    })
+                    .catch(ex => this.setState({ error: ex.toString() }));
+        });
     }
 
     handleMoreData() {

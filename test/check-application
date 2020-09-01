@@ -28,16 +28,18 @@ def getMaximumSpike(browser, g_type, saturation, hour, minute):
 
     return max(xs)
 
+
+def prepareArchive(machine, name, time):
+    machine.upload(["archives/{0}".format(name)], "/tmp/")
+    machine.execute("""timedatectl set-ntp off
+                       systemctl stop pmlogger
+                       rm -rf /var/log/pcp/pmlogger/*
+                       tar -C / -xzvf /tmp/{0}
+                       timedatectl set-time @{1}""".format(name, time))
+
+
 class TestApplication(testlib.MachineCase):
 
-
-    def prepareArchive(self, name, time):
-        self.machine.upload(["archives/{0}".format(name)], "/tmp/")
-        self.machine.execute("""timedatectl set-ntp off
-                                systemctl stop pmlogger
-                                rm -rf /var/log/pcp/pmlogger/*
-                                tar -C / -xzvf /tmp/{0}
-                                timedatectl set-time @{1}""".format(name, time))
 
     def testBasic(self):
         b = self.browser
@@ -111,7 +113,7 @@ class TestApplication(testlib.MachineCase):
         b = self.browser
         m = self.machine
 
-        self.prepareArchive("disk.tar.gz", 1597672800)
+        prepareArchive(m, "disk.tar.gz", 1597672800)
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading
@@ -136,7 +138,7 @@ class TestApplication(testlib.MachineCase):
         b = self.browser
         m = self.machine
 
-        self.prepareArchive("cpu_network.tar.gz", 1598918400)
+        prepareArchive(m, "cpu_network.tar.gz", 1598918400)
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading

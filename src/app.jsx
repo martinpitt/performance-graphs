@@ -115,8 +115,6 @@ const CURRENT_METRICS = [
     { name: "network.interface.tx", units: "bytes", derive: "rate" },
 ];
 
-const CURRENT_METRICS_INIT = [null, null, null, null, null, null, [], []];
-
 const HISTORY_METRICS = [
     // CPU utilization
     { name: "kernel.all.cpu.nice", derive: "rate" },
@@ -141,16 +139,30 @@ const HISTORY_METRICS = [
     { name: "network.interface.total.bytes", derive: "rate", "omit-instances": ["lo"] },
 ];
 
-// metrics with instances, which need special treatment
-const LOAD_INDEX = 3;
-const NET_TOTAL_INDEX = 8;
+// metrics channel samples are compressed, see
+// https://github.com/cockpit-project/cockpit/blob/master/doc/protocol.md#payload-metrics1
+// samples is the compressed metrics channel value, state the last valid values (initialize once to empty array)
+function decompress_samples(samples, state) {
+    samples.forEach((sample, i) => {
+        if (sample instanceof Array) {
+            if (!state[i]) // uninitialized, create empty array
+                state[i] = [];
+            sample.forEach((inst, k) => {
+                if (inst !== null && inst !== false)
+                    state[i][k] = inst;
+            });
+        } else if (sample !== null && sample !== false) {
+            state[i] = sample;
+        }
+    });
+}
 
 class CurrentMetrics extends React.Component {
     constructor(props) {
         super(props);
 
         this.metrics_channel = null;
-        this.samples = CURRENT_METRICS_INIT.slice();
+        this.samples = [];
         this.netInterfacesNames = [];
 
         this.state = {
@@ -234,26 +246,14 @@ class CurrentMetrics extends React.Component {
 
         // reset state on meta messages
         if (!Array.isArray(data)) {
-            this.samples = CURRENT_METRICS_INIT.slice();
+            this.samples = [];
             console.assert(data.metrics[6].name === 'network.interface.rx');
             this.netInterfacesNames = data.metrics[6].instances.slice();
             console.log("XXX metrics message was meta, new net instance names", JSON.stringify(this.netInterfacesNames));
             return;
         }
 
-        // decompress
-        data.forEach(samples => {
-            samples.forEach((sample, i) => {
-                if (sample instanceof Array) {
-                    sample.forEach((inst, k) => {
-                        if (inst !== null)
-                            this.samples[i][k] = inst;
-                    });
-                } else if (sample !== null) {
-                    this.samples[i] = sample;
-                }
-            });
-        });
+        data.forEach(samples => decompress_samples(samples, this.samples));
 
         const newState = {};
         // CPU metrics are in ms/s; divide by 10 to get percentage
@@ -531,7 +531,7 @@ class MetricsHistory extends React.Component {
         this.oldest_timestamp = this.oldest_timestamp > load_timestamp || this.oldest_timestamp === 0 ? load_timestamp : this.oldest_timestamp;
         let current_hour; // hour of timestamp, from most recent meta message
         let hour_index; // index within data[current_hour] array
-        const current_sample = Array(HISTORY_METRICS.length).fill(null); // last valid value, for decompression
+        const current_sample = []; // last valid value, for decompression
         const new_hours = new Set(); // newly seen hours during this load
 
         const metrics = cockpit.channel({
@@ -567,35 +567,14 @@ class MetricsHistory extends React.Component {
             console.log("XXX message is", message.length, "samples data for current hour", current_hour, "=", moment(current_hour).format());
 
             message.forEach(samples => {
-                // decompress
-                samples.forEach((sample, i) => {
-                    if (i === LOAD_INDEX) {
-                        // CPU load: 3 instances (15min, 1min, 5min)
-                        if (sample && sample[1] !== undefined && sample[1] !== null && sample[1] !== false)
-                            current_sample[i] = sample[1];
-                    } else if (i === NET_TOTAL_INDEX) {
-                        // network rates: one instance per interface
-                        if (current_sample[NET_TOTAL_INDEX] === null) {
-                            current_sample[NET_TOTAL_INDEX] = sample;
-                        } else {
-                            sample.forEach((iface, k) => {
-                                if (iface !== null && iface !== false)
-                                    current_sample[NET_TOTAL_INDEX][k] = iface;
-                            });
-                        }
-                    } else {
-                        // scalar values
-                        if (sample !== null && sample !== false)
-                            current_sample[i] = sample;
-                    }
-                });
+                decompress_samples(samples, current_sample);
 
                 // TODO: eventually track/display this by-interface?
-                const use_network = current_sample[NET_TOTAL_INDEX].reduce((acc, cur) => acc + cur, 0);
+                const use_network = current_sample[8].reduce((acc, cur) => acc + cur, 0);
 
                 this.data[current_hour][hour_index] = {
                     use_cpu: [current_sample[0], current_sample[1], current_sample[2]],
-                    sat_cpu: current_sample[LOAD_INDEX],
+                    sat_cpu: current_sample[3][1], // instances: (15min, 1min, 5min), pick 1min
                     use_memory: [current_sample[4], current_sample[5]],
                     sat_memory: current_sample[6],
                     use_disks: current_sample[7],
@@ -603,8 +582,8 @@ class MetricsHistory extends React.Component {
                 };
 
                 // keep track of maximums of unbounded values, for dynamic scaling
-                if (current_sample[LOAD_INDEX] > scaleSatCPU)
-                    scaleSatCPU = scaleForValue(current_sample[LOAD_INDEX]);
+                if (current_sample[3] > scaleSatCPU)
+                    scaleSatCPU = scaleForValue(current_sample[3]);
                 if (current_sample[7] > scaleUseDisks)
                     scaleUseDisks = scaleForValue(current_sample[7]);
                 if (use_network > scaleUseNetwork)

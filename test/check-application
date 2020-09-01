@@ -132,6 +132,49 @@ class TestApplication(testlib.MachineCase):
         # No visible activity after that
         self.assertLessEqual(self.getMaximumSpike("disks", False, 1597662000000, 30), 0.01)
 
+    def testNetworkAndCPU(self):
+        b = self.browser
+        m = self.machine
+
+        self.prepareArchive("cpu_network.tar.gz", 1598918400)
+
+        self.login_and_go("/performance-graphs")
+        # eventually finishes data loading and shows heading
+        b.wait_in_text(".metrics-history", "Events")
+        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_present(".metrics-hour .metrics-data-cpu")
+
+        # Test network - Big spike lasting 2 minutes
+        self.assertGreaterEqual(self.getMaximumSpike("network", False, 1598950800000, 3), 0.5)
+        self.assertGreaterEqual(self.getMaximumSpike("network", False, 1598950800000, 4), 0.5)
+
+        # Followed by smaller spike
+        self.assertGreaterEqual(self.getMaximumSpike("network", False, 1598950800000, 5), 0.35)
+        self.assertLessEqual(self.getMaximumSpike("network", False, 1598950800000, 5), 0.5)
+
+        # Followed by virtually no data
+        self.assertLessEqual(self.getMaximumSpike("network", False, 1598950800000, 6), 0.01)
+
+        # Test CPU load - big - small - big spikes
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", False, 1598950800000, 3), 0.9)
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", False, 1598950800000, 4), 0.5)
+        self.assertLessEqual(self.getMaximumSpike("cpu", False, 1598950800000, 4), 0.55)
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", False, 1598950800000, 5), 0.9)
+
+        # Test CPU saturation - 3 spikes, each 2 minutes (medium, big, small)
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", True, 1598950800000, 3), 0.5)
+        self.assertLessEqual(self.getMaximumSpike("cpu", True, 1598950800000, 3), 0.6)
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", True, 1598950800000, 4), 0.5)
+        self.assertLessEqual(self.getMaximumSpike("cpu", True, 1598950800000, 4), 0.6)
+
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", True, 1598950800000, 5), 0.8)
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", True, 1598950800000, 6), 0.8)
+
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", True, 1598950800000, 7), 0.3)
+        self.assertLessEqual(self.getMaximumSpike("cpu", True, 1598950800000, 7), 0.4)
+        self.assertGreaterEqual(self.getMaximumSpike("cpu", True, 1598950800000, 8), 0.3)
+        self.assertLessEqual(self.getMaximumSpike("cpu", True, 1598950800000, 8), 0.4)
+
     @testlib.nondestructive
     def testNoData(self):
         b = self.browser

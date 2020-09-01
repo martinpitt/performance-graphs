@@ -1,6 +1,6 @@
 *~
 *.retry
-*.tar.gz
+/*.tar.gz
 *.rpm
 node_modules/
 dist/

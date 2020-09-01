@@ -571,10 +571,11 @@ class MetricsHistory extends React.Component {
 
                 // TODO: eventually track/display this by-interface?
                 const use_network = current_sample[8].reduce((acc, cur) => acc + cur, 0);
+                const sat_cpu = current_sample[3][1]; // instances: (15min, 1min, 5min), pick 1min
 
                 this.data[current_hour][hour_index] = {
                     use_cpu: [current_sample[0], current_sample[1], current_sample[2]],
-                    sat_cpu: current_sample[3][1], // instances: (15min, 1min, 5min), pick 1min
+                    sat_cpu,
                     use_memory: [current_sample[4], current_sample[5]],
                     sat_memory: current_sample[6],
                     use_disks: current_sample[7],
@@ -582,8 +583,8 @@ class MetricsHistory extends React.Component {
                 };
 
                 // keep track of maximums of unbounded values, for dynamic scaling
-                if (current_sample[3] > scaleSatCPU)
-                    scaleSatCPU = scaleForValue(current_sample[3]);
+                if (sat_cpu > scaleSatCPU)
+                    scaleSatCPU = scaleForValue(sat_cpu);
                 if (current_sample[7] > scaleUseDisks)
                     scaleUseDisks = scaleForValue(current_sample[7]);
                 if (use_network > scaleUseNetwork)

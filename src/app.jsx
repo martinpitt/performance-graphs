@@ -317,12 +317,14 @@ class CurrentMetrics extends React.Component {
                     <CardTitle>{ _("Disks") }</CardTitle>
                     <CardBody>
                         <table className="disks-io">
-                            <tr>
-                                <th>{ _("Reading:") }</th>
-                                <td id="current-disks-read">{ cockpit.format_bytes_per_sec(this.state.disksRead) }</td>
-                                <th>{ _("Writing:") }</th>
-                                <td id="current-disks-write">{ cockpit.format_bytes_per_sec(this.state.disksWritten) }</td>
-                            </tr>
+                            <tbody>
+                                <tr>
+                                    <th>{ _("Reading:") }</th>
+                                    <td id="current-disks-read">{ cockpit.format_bytes_per_sec(this.state.disksRead) }</td>
+                                    <th>{ _("Writing:") }</th>
+                                    <td id="current-disks-write">{ cockpit.format_bytes_per_sec(this.state.disksWritten) }</td>
+                                </tr>
+                            </tbody>
                         </table>
 
                         <div className="progress-stack"> {

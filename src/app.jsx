@@ -276,7 +276,7 @@ class CurrentMetrics extends React.Component {
 
     render() {
         const fraction = this.state.memUsed / this.state.memTotal;
-        const memAvail = this.state.memTotal - this.state.memUsed;
+        const memAvail = Number(this.state.memTotal - this.state.memUsed).toFixed(1);
         const num_cpu_str = cockpit.format(cockpit.ngettext("$0 CPU", "$0 CPUs", this.state.numCpu), this.state.numCpu);
 
         const netIO = this.netInterfacesNames.map((iface, i) => [

@@ -125,6 +125,8 @@ const CURRENT_METRICS = [
     { name: "disk.all.written", units: "bytes", derive: "rate" },
     { name: "network.interface.rx", units: "bytes", derive: "rate" },
     { name: "network.interface.tx", units: "bytes", derive: "rate" },
+    { name: "cgroup.cpu.usage", derive: "rate" },
+    { name: "cgroup.memory.usage" },
 ];
 
 const HISTORY_METRICS = [
@@ -181,6 +183,8 @@ class CurrentMetrics extends React.Component {
         this.metrics_channel = null;
         this.samples = [];
         this.netInterfacesNames = [];
+        this.cgroupCPUNames = [];
+        this.cgroupMemoryNames = [];
 
         this.state = {
             memUsed: 0, // GiB
@@ -192,6 +196,8 @@ class CurrentMetrics extends React.Component {
             mounts: [], // [{ target (string), use (percent), avail (bytes) }]
             netInterfacesRx: [],
             netInterfacesTx: [],
+            topServicesCPU: [], // [ { name, percent } ]
+            topServicesMemory: [], // [ { name, bytes } ]
         };
 
         this.onVisibilityChange = this.onVisibilityChange.bind(this);
@@ -285,6 +291,9 @@ class CurrentMetrics extends React.Component {
             this.samples = [];
             console.assert(data.metrics[7].name === 'network.interface.rx');
             this.netInterfacesNames = data.metrics[7].instances.slice();
+            console.assert(data.metrics[9].name === 'cgroup.cpu.usage');
+            this.cgroupCPUNames = data.metrics[9].instances.slice();
+            this.cgroupMemoryNames = data.metrics[10].instances.slice();
             debug("metrics message was meta, new net instance names", JSON.stringify(this.netInterfacesNames));
             return;
         }
@@ -308,6 +317,38 @@ class CurrentMetrics extends React.Component {
 
         newState.netInterfacesRx = this.samples[7];
         newState.netInterfacesTx = this.samples[8];
+
+        // return [ { [key, value] } ] list of the biggest n values
+        function n_biggest(names, values, n) {
+            const merged = [];
+            names.forEach((k, i) => {
+                const v = values[i];
+                // filter out invalid values, the empty (root) cgroup, non-services
+                if (k.endsWith('.service') && typeof v === 'number' && v != 0) {
+                    const label = k.replace(/.*\//, '').replace(/\.service$/, '');
+                    // only keep cgroup basenames, and drop redundant .service suffix
+                    merged.push([label, v]);
+                }
+            });
+            merged.sort((a, b) => b[1] - a[1]);
+            return merged.slice(0, n);
+        }
+
+        function serviceRow(name, value) {
+            const title = <a key={name} href="#" onClick={ e => cockpit.jump("/system/services#/" + name + ".service") }>{name}</a>;
+            return {
+                cells: [{ title }, value]
+            };
+        }
+
+        // top 5 CPU and memory consuming systemd units
+        newState.topServicesCPU = n_biggest(this.cgroupCPUNames, this.samples[9], 5).map(
+            x => serviceRow(x[0], Number(x[1] / 10).toFixed(1)) // usec/s → percent
+        );
+
+        newState.topServicesMemory = n_biggest(this.cgroupMemoryNames, this.samples[10], 5).map(
+            x => serviceRow(x[0], cockpit.format_bytes(x[1], 1000))
+        );
 
         this.setState(newState);
     }
@@ -363,8 +404,21 @@ class CurrentMetrics extends React.Component {
                                     </tr>
                                 </tbody>
                             </table> }
-                    </CardBody>
 
+                        { this.state.topServicesCPU.length > 0 &&
+                            <Table
+                                variant={TableVariant.compact}
+                                borders={false}
+                                aria-label={ _("Top 5 CPU services") }
+                                cells={ [_("Service"), "%"] }
+                                rows={this.state.topServicesCPU}>
+                                <TableHeader />
+                                <TableBody />
+                            </Table> }
+                    </CardBody>
+                </Card>
+
+                <Card>
                     <CardTitle>{ _("Memory") }</CardTitle>
                     <CardBody>
                         <div className="progress-stack">
@@ -378,6 +432,17 @@ class CurrentMetrics extends React.Component {
                                 label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, memTotal) } />
                             {swapProgress}
                         </div>
+
+                        { this.state.topServicesMemory.length > 0 &&
+                            <Table
+                                variant={TableVariant.compact}
+                                borders={false}
+                                aria-label={ _("Top 5 memory services") }
+                                cells={ [_("Service"), _("Used")] }
+                                rows={this.state.topServicesMemory}>
+                                <TableHeader />
+                                <TableBody />
+                            </Table> }
                     </CardBody>
                 </Card>
 

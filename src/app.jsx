@@ -33,6 +33,7 @@ import { ExclamationCircleIcon } from '@patternfly/react-icons';
 import './app.scss';
 
 import * as machine_info from "../lib/machine-info.js";
+import './lib/form-layout.scss';
 
 const MSEC_PER_H = 3600000;
 const INTERVAL = 5000;
@@ -317,16 +318,12 @@ class CurrentMetrics extends React.Component {
                 <Card>
                     <CardTitle>{ _("Disks") }</CardTitle>
                     <CardBody>
-                        <table className="disks-io">
-                            <tbody>
-                                <tr>
-                                    <th>{ _("Reading:") }</th>
-                                    <td id="current-disks-read">{ cockpit.format_bytes_per_sec(this.state.disksRead) }</td>
-                                    <th>{ _("Writing:") }</th>
-                                    <td id="current-disks-write">{ cockpit.format_bytes_per_sec(this.state.disksWritten) }</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div className="ct-form ct-form-info">
+                            <label className="control-label" htmlFor="current-disks-read">{ _("Reading:") }</label>
+                            <div id="current-disks-read" className="form-control ct-form-split">{ cockpit.format_bytes_per_sec(this.state.disksRead) }</div>
+                            <label className="control-label" htmlFor="current-disks-write">{ _("Writing:") }</label>
+                            <div id="current-disks-write" className="form-control ct-form-split">{ cockpit.format_bytes_per_sec(this.state.disksWritten) }</div>
+                        </div>
 
                         <div className="progress-stack"> {
                             this.state.mounts.map(info => <Progress

@@ -147,6 +147,11 @@ const HISTORY_METRICS = [
     { name: "network.interface.total.bytes", derive: "rate", "omit-instances": ["lo"] },
 ];
 
+function debug() {
+    if (window.debugging == "all" || window.debugging == "metrics")
+        console.debug.apply(console, arguments);
+}
+
 // metrics channel samples are compressed, see
 // https://github.com/cockpit-project/cockpit/blob/master/doc/protocol.md#payload-metrics1
 // samples is the compressed metrics channel value, state the last valid values (initialize once to empty array)
@@ -235,14 +240,14 @@ class CurrentMetrics extends React.Component {
                                 });
                             });
 
-                    console.log("XXX df parsing done:", JSON.stringify(mounts));
+                    debug("df parsing done:", JSON.stringify(mounts));
                     this.setState({ mounts });
                 })
                 .catch(ex => console.warn("Failed to run df:", ex.toString()));
     }
 
     onMetricsUpdate(event, message) {
-        console.log("XXX current metrics message", message);
+        debug("current metrics message", message);
         const data = JSON.parse(message);
 
         // reset state on meta messages
@@ -250,7 +255,7 @@ class CurrentMetrics extends React.Component {
             this.samples = [];
             console.assert(data.metrics[6].name === 'network.interface.rx');
             this.netInterfacesNames = data.metrics[6].instances.slice();
-            console.log("XXX metrics message was meta, new net instance names", JSON.stringify(this.netInterfacesNames));
+            debug("metrics message was meta, new net instance names", JSON.stringify(this.netInterfacesNames));
             return;
         }
 
@@ -474,7 +479,6 @@ const MetricsHour = ({ startTime, data }) => {
             }
 
             const time = moment(startTime + minute * 60000 + indexOffset * INTERVAL).format("LTS");
-            console.log("XXX", ev.type, "hour", startTime, "minute", minute, JSON.stringify(sample), "indexOffset", indexOffset, "time", time);
             let tooltip = time + "\n\n";
             for (const t in sample)
                 tooltip += `${RESOURCES[t].name}: ${RESOURCES[t].format(sample[t])}\n`;
@@ -549,7 +553,7 @@ class MetricsHistory extends React.Component {
         });
 
         metrics.addEventListener("message", (event, message) => {
-            console.log("XXX history metrics message", message);
+            debug("history metrics message", message);
             message = JSON.parse(message);
 
             const init_current_hour = () => {
@@ -565,11 +569,11 @@ class MetricsHistory extends React.Component {
                 hour_index = Math.floor((message.timestamp - current_hour) / INTERVAL);
                 console.assert(hour_index < SAMPLES_PER_H);
 
-                console.log("XXX message is metadata; time stamp", message.timestamp, "=", moment(message.timestamp).format(), "for current_hour", current_hour, "=", moment(current_hour).format(), "hour_index", hour_index);
+                debug("message is metadata; time stamp", message.timestamp, "=", moment(message.timestamp).format(), "for current_hour", current_hour, "=", moment(current_hour).format(), "hour_index", hour_index);
                 return;
             }
 
-            console.log("XXX message is", message.length, "samples data for current hour", current_hour, "=", moment(current_hour).format());
+            debug("message is", message.length, "samples data for current hour", current_hour, "=", moment(current_hour).format());
 
             message.forEach(samples => {
                 decompress_samples(samples, current_sample);
@@ -599,13 +603,13 @@ class MetricsHistory extends React.Component {
                     current_hour += MSEC_PER_H;
                     hour_index = 0;
                     init_current_hour();
-                    console.log("XXX hour overflow, advancing to", current_hour, "=", moment(current_hour).format());
+                    debug("hour overflow, advancing to", current_hour, "=", moment(current_hour).format());
                 }
             });
 
             // update most recent sample timestamp
             this.most_recent = Math.max(this.most_recent, current_hour + hour_index * INTERVAL);
-            console.log("XXX most recent timestamp is now", this.most_recent, "=", moment(this.most_recent).format());
+            debug("most recent timestamp is now", this.most_recent, "=", moment(this.most_recent).format());
         });
 
         metrics.addEventListener("close", (event, message) => {
@@ -615,7 +619,7 @@ class MetricsHistory extends React.Component {
                     metricsAvailable: false,
                 });
             } else {
-                console.log("XXX loaded metrics for timestamp", moment(load_timestamp).format(), "new hours", JSON.stringify(Array.from(new_hours)));
+                debug("loaded metrics for timestamp", moment(load_timestamp).format(), "new hours", JSON.stringify(Array.from(new_hours)));
                 new_hours.forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
 
                 const hours = Array.from(new Set([...this.state.hours, ...new_hours]));

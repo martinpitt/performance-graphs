@@ -303,8 +303,6 @@ class TestApplication(testlib.MachineCase):
             return re.match(regexp, text) is not None
 
         # loopback is quiet enough to not transmit MB/s
-        in_rate = b.text("[aria-label='Network usage'] [data-interface='lo'] td[data-label='In']")
-        out_rate = b.text("[aria-label='Network usage'] [data-interface='lo'] td[data-label='Out']")
         b.wait(lambda: rateMatches("In", r'^[0-9.]+ (KiB|B)/s$'))
         b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (KiB|B)/s$'))
         # pipe lots of data through lo

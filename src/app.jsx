@@ -156,10 +156,10 @@ function decompress_samples(samples, state) {
             if (!state[i]) // uninitialized, create empty array
                 state[i] = [];
             sample.forEach((inst, k) => {
-                if (inst !== null && inst !== false)
+                if (typeof inst === 'number')
                     state[i][k] = inst;
             });
-        } else if (sample !== null && sample !== false) {
+        } else if (typeof sample === 'number') {
             state[i] = sample;
         }
     });
@@ -258,14 +258,14 @@ class CurrentMetrics extends React.Component {
 
         const newState = {};
         // CPU metrics are in ms/s; divide by 10 to get percentage
-        if (this.samples[0] !== false) {
+        if (typeof this.samples[0] === 'number') {
             const cpu = Math.round((this.samples[0] + this.samples[1] + this.samples[2]) / 10 / numCpu);
             newState.cpuUsed = cpu;
         }
 
-        if (this.samples[4] !== false)
+        if (typeof this.samples[4] === 'number')
             newState.disksRead = this.samples[4];
-        if (this.samples[5] !== false)
+        if (typeof this.samples[5] === 'number')
             newState.disksWritten = this.samples[5];
 
         newState.memUsed = Number((this.samples[3] / (1024 * 1024 * 1024)).toFixed(1));

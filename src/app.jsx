@@ -190,14 +190,13 @@ class CurrentMetrics extends React.Component {
 
         this.onVisibilityChange = this.onVisibilityChange.bind(this);
         this.onMetricsUpdate = this.onMetricsUpdate.bind(this);
-        this.getMounts = this.getMounts.bind(this);
+        this.updateMounts = this.updateMounts.bind(this);
 
         cockpit.addEventListener("visibilitychange", this.onVisibilityChange);
         this.onVisibilityChange();
 
         // regularly update info about file systems
-        this.getMounts();
-        window.setInterval(this.getMounts, 10000);
+        this.updateMounts();
     }
 
     onVisibilityChange() {
@@ -215,7 +214,7 @@ class CurrentMetrics extends React.Component {
         }
     }
 
-    getMounts() {
+    updateMounts() {
         /* df often exits with non-zero if it encounters any file system it can't read; but that's fine, get info about all the
          * others */
         cockpit.script("df --local --exclude-type=tmpfs --exclude-type=devtmpfs --block-size=1 --output=target,size,avail,pcent || true",
@@ -242,8 +241,14 @@ class CurrentMetrics extends React.Component {
 
                     debug("df parsing done:", JSON.stringify(mounts));
                     this.setState({ mounts });
+
+                    // update it again regularly
+                    window.setTimeout(this.updateMounts, 10000);
                 })
-                .catch(ex => console.warn("Failed to run df:", ex.toString()));
+                .catch(ex => {
+                    console.warn("Failed to run df:", ex.toString());
+                    this.setState({ mounts: [] });
+                });
     }
 
     onMetricsUpdate(event, message) {

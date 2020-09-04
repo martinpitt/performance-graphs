@@ -181,6 +181,7 @@ class CurrentMetrics extends React.Component {
         this.state = {
             memUsed: 0, // GiB
             cpuUsed: 0, // percentage
+            loadAvg: null, // string
             disksRead: 0, // B/s
             disksWritten: 0, // B/s
             mounts: [], // [{ target (string), use (percent), avail (bytes) }]
@@ -191,12 +192,16 @@ class CurrentMetrics extends React.Component {
         this.onVisibilityChange = this.onVisibilityChange.bind(this);
         this.onMetricsUpdate = this.onMetricsUpdate.bind(this);
         this.updateMounts = this.updateMounts.bind(this);
+        this.updateLoad = this.updateLoad.bind(this);
 
         cockpit.addEventListener("visibilitychange", this.onVisibilityChange);
         this.onVisibilityChange();
 
         // regularly update info about file systems
         this.updateMounts();
+
+        // there is no internal metrics channel for load yet; see https://github.com/cockpit-project/cockpit/pull/14510
+        this.updateLoad();
     }
 
     onVisibilityChange() {
@@ -251,6 +256,21 @@ class CurrentMetrics extends React.Component {
                 });
     }
 
+    updateLoad() {
+        cockpit.file("/proc/loadavg").read()
+                .then(content => {
+                    // format: three load averages, then process counters; e.g.: 0.67 1.00 0.78 2/725 87151
+                    const load = content.split(' ').slice(0, 3);
+                    this.setState({ loadAvg: cockpit.format("$0: $1, $2: $3, $4: $5", _("1 min"), load[0], _("5 min"), load[1], _("15 min"), load[2]) });
+                    // update it again regularly
+                    window.setTimeout(this.updateLoad, 5000);
+                })
+                .catch(ex => {
+                    console.warn("Failed to read /proc/loadavg:", ex.toString());
+                    this.setState({ loadAvg: null });
+                });
+    }
+
     onMetricsUpdate(event, message) {
         debug("current metrics message", message);
         const data = JSON.parse(message);
@@ -301,14 +321,26 @@ class CurrentMetrics extends React.Component {
                 <Card>
                     <CardTitle>{ _("CPU") }</CardTitle>
                     <CardBody>
-                        <Progress
-                            id="current-cpu-usage"
-                            value={this.state.cpuUsed}
-                            className="pf-m-sm"
-                            min={0} max={100}
-                            variant={ this.state.cpuUsed > 90 ? ProgressVariant.danger : ProgressVariant.info }
-                            title={ num_cpu_str }
-                            label={ this.state.cpuUsed + '% ' } />
+                        <div className="progress-stack">
+                            <Progress
+                                id="current-cpu-usage"
+                                value={this.state.cpuUsed}
+                                className="pf-m-sm"
+                                min={0} max={100}
+                                variant={ this.state.cpuUsed > 90 ? ProgressVariant.danger : ProgressVariant.info }
+                                title={ num_cpu_str }
+                                label={ this.state.cpuUsed + '% ' } />
+                        </div>
+
+                        { this.state.loadAvg &&
+                            <table className="info-table">
+                                <tbody>
+                                    <tr>
+                                        <th>{ _("Load:") }</th>
+                                        <td id="load-avg">{this.state.loadAvg}</td>
+                                    </tr>
+                                </tbody>
+                            </table> }
                     </CardBody>
 
                     <CardTitle>{ _("Memory") }</CardTitle>
@@ -327,7 +359,7 @@ class CurrentMetrics extends React.Component {
                 <Card>
                     <CardTitle>{ _("Disks") }</CardTitle>
                     <CardBody>
-                        <table className="disks-io">
+                        <table className="info-table">
                             <tbody>
                                 <tr>
                                     <th>{ _("Reading:") }</th>

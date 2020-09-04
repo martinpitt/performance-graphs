@@ -30,13 +30,11 @@
       grid-gap: 0;
   }
 
-  .info-table {
-       th {
-           padding-right: 0.5em;
-       }
-       td {
-           padding-right: 1em;
-       }
+  // default is way too wide for the cards
+  .pf-c-description-list {
+      --pf-c-description-list--m-horizontal__term--width: minmax(0, auto);
+      --pf-c-description-list--m-horizontal__description--width: minmax(0, auto);
+      --pf-c-description-list__group--ColumnGap: 0;
   }
 }
 

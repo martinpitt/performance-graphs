@@ -233,6 +233,15 @@ class TestApplication(testlib.MachineCase):
         # should go back to idle usage
         b.wait(lambda: progressValue("#current-cpu-usage") < 20)
 
+        # Load looks like "1 min: 1.41, 5 min: 1.47, 15 min: 2.30"
+        b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) < 5)
+        load_hog = m.spawn("for i in `seq 500`; do dd if=/dev/urandom of=/dev/zero bs=10K count=500 status=none & done", "load-hog.log")
+        b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) > 15)
+        # ok to fail, as the command exits by itself
+        m.execute("kill %d 2>/dev/null || true" % load_hog)
+        # this settles down slowly, don't wait for too long
+        b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) < 10)
+
         # Memory
 
         # our test machines have ~ 1 GiB of memory, a reasonable chunk of it should be used

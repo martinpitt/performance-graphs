@@ -557,7 +557,7 @@ class MetricsHistory extends React.Component {
 
             const init_current_hour = () => {
                 if (!this.data[current_hour])
-                    this.data[current_hour] = Array(SAMPLES_PER_H).fill(null);
+                    this.data[current_hour] = [];
                 new_hours.add(current_hour);
             };
 

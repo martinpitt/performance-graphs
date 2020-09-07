@@ -368,7 +368,7 @@ class CurrentMetrics extends React.Component {
 const SvgGraph = ({ data, resource }) => {
     const dataPoints = key => (
         "0,0 " + // start polygon at (0, 0)
-        data.map((samples, index) => (samples ? samples[key].toString() : "0") + "," + index.toString()).join(" ") +
+        data.map((samples, index) => (samples && typeof samples[key] === 'number') ? samples[key].toString() + "," + index.toString() : "").join(" ") +
         " 0," + (data.length - 1) // close polygon
     );
 
@@ -398,7 +398,7 @@ const MetricsHour = ({ startTime, data }) => {
             return null;
         const n = {};
         for (const type in sample)
-            n[type] = RESOURCES[type].normalize(sample[type]);
+            n[type] = (sample[type] !== null && sample[type] !== undefined) ? RESOURCES[type].normalize(sample[type]) : null;
         return n;
     });
 
@@ -579,12 +579,12 @@ class MetricsHistory extends React.Component {
 
                 // TODO: eventually track/display this by-interface?
                 const use_network = current_sample[8].reduce((acc, cur) => acc + cur, 0);
-                const sat_cpu = current_sample[3][1]; // instances: (15min, 1min, 5min), pick 1min
+                const sat_cpu = typeof current_sample[3][1] === 'number' ? current_sample[3][1] : null; // instances: (15min, 1min, 5min), pick 1min
 
                 this.data[current_hour][hour_index] = {
-                    use_cpu: [current_sample[0], current_sample[1], current_sample[2]],
+                    use_cpu: typeof current_sample[2] === 'number' ? [current_sample[0], current_sample[1], current_sample[2]] : null,
                     sat_cpu,
-                    use_memory: [current_sample[4], current_sample[5]],
+                    use_memory: typeof current_sample[5] === 'number' ? [current_sample[4], current_sample[5]] : null,
                     sat_memory: current_sample[6],
                     use_disks: current_sample[7],
                     use_network,

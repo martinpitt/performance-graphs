@@ -484,7 +484,6 @@ const MetricsHour = ({ startTime, data }) => {
                 tooltip += `${RESOURCES[t].name}: ${RESOURCES[t].format(sample[t])}\n`;
             hourElement.setAttribute("title", tooltip);
         } else {
-            console.log(ev.type, "leave");
             hourElement.removeAttribute("title");
         }
     };
@@ -620,7 +619,7 @@ class MetricsHistory extends React.Component {
                 });
             } else {
                 debug("loaded metrics for timestamp", moment(load_timestamp).format(), "new hours", JSON.stringify(Array.from(new_hours)));
-                new_hours.forEach(hour => console.log("hour", hour, "data", JSON.stringify(this.data[hour])));
+                new_hours.forEach(hour => debug("hour", hour, "data", JSON.stringify(this.data[hour])));
 
                 const hours = Array.from(new Set([...this.state.hours, ...new_hours]));
                 // sort in descending order

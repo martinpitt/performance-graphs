@@ -574,8 +574,15 @@ class MetricsHistory extends React.Component {
 
             debug("message is", message.length, "samples data for current hour", current_hour, "=", moment(current_hour).format());
 
-            message.forEach(samples => {
+            message.forEach((samples, i) => {
                 decompress_samples(samples, current_sample);
+
+                /* don't overwrite existing data with null data; this often happens at the first
+                 * data point when "rate" metrics cannot be calculated yet */
+                if (typeof current_sample[0] !== 'number' && this.data[current_hour][hour_index]) {
+                    debug("load_data", load_timestamp, ": ignoring sample #", i, ":", JSON.stringify(current_sample), "current data sample", JSON.stringify(this.data[current_hour][hour_index]));
+                    return;
+                }
 
                 // TODO: eventually track/display this by-interface?
                 const use_network = current_sample[8].reduce((acc, cur) => acc + cur, 0);
@@ -607,7 +614,7 @@ class MetricsHistory extends React.Component {
             });
 
             // update most recent sample timestamp
-            this.most_recent = Math.max(this.most_recent, current_hour + hour_index * INTERVAL);
+            this.most_recent = Math.max(this.most_recent, current_hour + (hour_index - 5) * INTERVAL);
             debug("most recent timestamp is now", this.most_recent, "=", moment(this.most_recent).format());
         });
 

@@ -96,8 +96,8 @@ class TestApplication(testlib.MachineCase):
         minute_end = now.minute
         hour_end = int(datetime.datetime.timestamp(now.replace(minute=0, second=0))) * 1000
 
-        # UI auto-updates every minute, so it should pick up the new spike within the next 30s
-        b.wait_js_func("(exp => ph_count('.metrics-events') == exp)", initial_events + 1)
+        # UI auto-updates every minute, so it should pick up the new spike (and possibly other events) within the next 30s
+        b.wait_js_func("(exp => ph_count('.metrics-events') >= exp)", initial_events + 1)
 
         # We cannot just wait for spike, as we are not sure, in which minute it actually is (it
         # might be in the starting minute or in the ending one).

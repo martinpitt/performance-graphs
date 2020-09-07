@@ -52,10 +52,13 @@ var scaleUseNetwork = 100000; // B/s
 
 var numCpu = 1;
 var memTotal; // GiB
+var swapTotal; // GiB, can be undefined
 var machine_info_promise = machine_info.cpu_ram_info();
 machine_info_promise.then(info => {
     numCpu = info.cpus;
     memTotal = Number((info.memory / (1024 * 1024 * 1024)).toFixed(1));
+    if (info.swap)
+        swapTotal = Number((info.swap / (1024 * 1024 * 1024)).toFixed(1));
 });
 
 // round up to the nearest number that has all zeroes except for the first digit
@@ -117,6 +120,7 @@ const CURRENT_METRICS = [
     { name: "cpu.basic.system", derive: "rate" },
     { name: "cpu.basic.nice", derive: "rate" },
     { name: "memory.used" },
+    { name: "memory.swap-used" },
     { name: "disk.all.read", units: "bytes", derive: "rate" },
     { name: "disk.all.written", units: "bytes", derive: "rate" },
     { name: "network.interface.rx", units: "bytes", derive: "rate" },
@@ -180,6 +184,7 @@ class CurrentMetrics extends React.Component {
 
         this.state = {
             memUsed: 0, // GiB
+            swapUsed: null, // GiB
             cpuUsed: 0, // percentage
             loadAvg: null, // string
             disksRead: 0, // B/s
@@ -278,8 +283,8 @@ class CurrentMetrics extends React.Component {
         // reset state on meta messages
         if (!Array.isArray(data)) {
             this.samples = [];
-            console.assert(data.metrics[6].name === 'network.interface.rx');
-            this.netInterfacesNames = data.metrics[6].instances.slice();
+            console.assert(data.metrics[7].name === 'network.interface.rx');
+            this.netInterfacesNames = data.metrics[7].instances.slice();
             debug("metrics message was meta, new net instance names", JSON.stringify(this.netInterfacesNames));
             return;
         }
@@ -293,20 +298,22 @@ class CurrentMetrics extends React.Component {
             newState.cpuUsed = cpu;
         }
 
-        if (typeof this.samples[4] === 'number')
-            newState.disksRead = this.samples[4];
-        if (typeof this.samples[5] === 'number')
-            newState.disksWritten = this.samples[5];
-
         newState.memUsed = Number((this.samples[3] / (1024 * 1024 * 1024)).toFixed(1));
-        newState.netInterfacesRx = this.samples[6];
-        newState.netInterfacesTx = this.samples[7];
+        newState.swapUsed = Number((this.samples[4] / (1024 * 1024 * 1024)).toFixed(1));
+
+        if (typeof this.samples[5] === 'number')
+            newState.disksRead = this.samples[5];
+        if (typeof this.samples[6] === 'number')
+            newState.disksWritten = this.samples[6];
+
+        newState.netInterfacesRx = this.samples[7];
+        newState.netInterfacesTx = this.samples[8];
 
         this.setState(newState);
     }
 
     render() {
-        const fraction = this.state.memUsed / memTotal;
+        const memUsedFraction = this.state.memUsed / memTotal;
         const memAvail = Number(memTotal - this.state.memUsed).toFixed(1);
         const num_cpu_str = cockpit.format(cockpit.ngettext("$0 CPU", "$0 CPUs", numCpu), numCpu);
 
@@ -315,6 +322,21 @@ class CurrentMetrics extends React.Component {
             cockpit.format_bytes_per_sec(this.state.netInterfacesRx[i]),
             cockpit.format_bytes_per_sec(this.state.netInterfacesTx[i]),
         ]);
+
+        let swapProgress;
+
+        if (swapTotal) {
+            const swapUsedFraction = this.state.swapUsed / swapTotal;
+            const swapAvail = Number(swapTotal - this.state.swapUsed).toFixed(1);
+            swapProgress = <Progress
+                                id="current-swap-usage"
+                                title={ _("Swap") }
+                                value={this.state.swapUsed}
+                                className="pf-m-sm"
+                                min={0} max={swapTotal}
+                                variant={swapUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
+                                label={ cockpit.format(_("$0 GiB available / $1 GiB total"), swapAvail, swapTotal) } />;
+        }
 
         return (
             <Gallery className="current-metrics" hasGutter>
@@ -345,14 +367,17 @@ class CurrentMetrics extends React.Component {
 
                     <CardTitle>{ _("Memory") }</CardTitle>
                     <CardBody>
-                        <Progress
-                            id="current-memory-usage"
-                            value={this.state.memUsed}
-                            className="pf-m-sm"
-                            min={0} max={memTotal}
-                            variant={fraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
-                            title=" "
-                            label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, memTotal) } />
+                        <div className="progress-stack">
+                            <Progress
+                                id="current-memory-usage"
+                                title={ _("RAM") }
+                                value={this.state.memUsed}
+                                className="pf-m-sm"
+                                min={0} max={memTotal}
+                                variant={memUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
+                                label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, memTotal) } />
+                            {swapProgress}
+                        </div>
                     </CardBody>
                 </Card>
 

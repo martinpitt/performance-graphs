@@ -23,8 +23,9 @@ def getMaximumSpike(browser, g_type, saturation, hour, minute):
     else:
         sel += ":first-child"
 
-    points = browser.attr(sel, "points").split(" ")
-    xs = [float(x.split(",")[0]) for x in points]
+    points = browser.attr(sel, "points")
+    assert "NaN" not in points, points
+    xs = [float(x.split(",")[0]) for x in points.split()]
 
     return max(xs)
 

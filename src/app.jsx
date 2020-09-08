@@ -30,7 +30,6 @@ import {
 } from '@patternfly/react-core';
 import { Table, TableHeader, TableBody, TableVariant, RowWrapper } from '@patternfly/react-table';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
-import './app.scss';
 
 import * as machine_info from "../lib/machine-info.js";
 

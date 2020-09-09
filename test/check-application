@@ -237,12 +237,12 @@ class TestApplication(testlib.MachineCase):
 
         nproc = m.execute("nproc").strip()
         b.wait_in_text("#current-cpu-usage", nproc + " CPU")
+        # make sure to clean up our test resource consumers on failures
+        self.addCleanup(m.execute, "systemctl stop cockpittest.slice 2>/dev/null || true")
         # wait until system settles down
         b.wait(lambda: progressValue("#current-cpu-usage") < 20)
-        m.execute("systemd-run -p CPUQuota=60% --unit cpu-hog.service dd if=/dev/urandom of=/dev/null")
-        m.execute("systemd-run -p CPUQuota=30% --unit cpu-piglet.service dd if=/dev/urandom of=/dev/null")
-        # make sure to clean up on failures
-        self.addCleanup(m.execute, "systemctl stop cpu-hog.service cpu-piglet.service 2>/dev/null || true")
+        m.execute("systemd-run --slice cockpittest -p CPUQuota=60% --unit cpu-hog dd if=/dev/urandom of=/dev/null")
+        m.execute("systemd-run --slice cockpittest -p CPUQuota=30% --unit cpu-piglet dd if=/dev/urandom of=/dev/null")
         b.wait(lambda: progressValue("#current-cpu-usage") > 75)
         # no other process in the test VM should take > 30% CPU, by the "settles down" assertion above
         b.wait_text("table[aria-label='Top 5 CPU services'] tbody tr:nth-of-type(1) td[data-label='Service']", "cpu-hog")
@@ -252,7 +252,7 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: topServiceValue("Top 5 CPU services", "%", 2) > 20)
         b.wait(lambda: topServiceValue("Top 5 CPU services", "%", 2) < 40)
 
-        m.execute("systemctl stop cpu-hog.service cpu-piglet.service")
+        m.execute("systemctl stop cpu-hog cpu-piglet")
         # should go back to idle usage
         b.wait(lambda: progressValue("#current-cpu-usage") < 20)
         b.wait_not_in_text("table[aria-label='Top 5 CPU services'] tbody", "cpu-hog")
@@ -260,10 +260,11 @@ class TestApplication(testlib.MachineCase):
 
         # Load looks like "1 min: 1.41, 5 min: 1.47, 15 min: 2.30"
         b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) < 5)
-        load_hog = m.spawn("for i in `seq 500`; do dd if=/dev/urandom of=/dev/zero bs=10K count=500 status=none & done", "load-hog.log")
+        m.execute("systemd-run --slice cockpittest --unit load-hog sh -ec "
+                  "  'for i in `seq 500`; do dd if=/dev/urandom of=/dev/zero bs=10K count=500 status=none & done'")
         b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) > 15)
         # ok to fail, as the command exits by itself
-        m.execute("kill %d 2>/dev/null || true" % load_hog)
+        m.execute("systemctl stop load-hog 2>/dev/null || true")
         # this settles down slowly, don't wait for too long
         b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) < 10)
 
@@ -276,9 +277,7 @@ class TestApplication(testlib.MachineCase):
         self.assertLess(initial_usage, 80)
         # allocate an extra 300 MB; this may cause other stuff to get unmapped,
         # thus not exact addition, but usage should go up
-        m.execute("systemd-run --unit mem-hog.service sh -ec 'MEMBLOB=$(yes | dd bs=1M count=300 iflag=fullblock); touch /tmp/hogged; sleep infinity'")
-        # make sure to clean up on failures
-        self.addCleanup(m.execute, "systemctl stop mem-hog.service 2>/dev/null || true")
+        m.execute("systemd-run --slice cockpittest --unit mem-hog sh -ec 'MEMBLOB=$(yes | dd bs=1M count=300 iflag=fullblock); touch /tmp/hogged; sleep infinity'")
         m.execute("while [ ! -e /tmp/hogged ]; do sleep 1; done")
         # bars update every 3s
         time.sleep(8)
@@ -300,10 +299,10 @@ class TestApplication(testlib.MachineCase):
         b.wait_present("table[aria-label='Top 5 memory services']")
 
         # use even more memory to trigger swap
-        m.execute("systemd-run --unit mem-hog2.service sh -ec 'MEMBLOB=$(yes | dd bs=1M count=300 iflag=fullblock); sleep infinity'")
+        m.execute("systemd-run --slice cockpittest --unit mem-hog2 sh -ec 'MEMBLOB=$(yes | dd bs=1M count=300 iflag=fullblock); sleep infinity'")
         b.wait(lambda: progressValue("#current-swap-usage") > 0)
 
-        m.execute("systemctl stop mem-hog.service mem-hog2.service")
+        m.execute("systemctl stop mem-hog mem-hog2")
 
         # should go back to initial_usage; often below, due to paged out stuff
         b.wait(lambda: progressValue("#current-memory-usage") <= initial_usage)
@@ -316,17 +315,18 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))
         # reading lots of data
-        disk_read_hog = m.spawn("grep -r . /usr >/dev/null", "disk_read_hog.log")
+        m.execute("systemd-run --slice cockpittest --unit disk-read-hog sh -ec 'grep -r . /usr >/dev/null'")
         b.wait(lambda: re.match(r'^[0-9.]+ (MiB|GiB)/s$', b.text("#current-disks-read")))
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))  # this should stay calm
-        m.execute("kill %d" % disk_read_hog)
+        m.execute("systemctl stop disk-read-hog")
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))  # back to quiet
         # writing lots of data
-        disk_write_hog = m.spawn("while true; do dd if=/dev/zero of=/var/tmp/blob bs=1M count=100; done", "disk_write_hog.log")
+        m.execute("systemd-run --slice cockpittest --unit disk-write-hog sh -ec "
+                  " 'while true; do dd if=/dev/zero of=/var/tmp/blob bs=1M count=100; done'")
         self.addCleanup(self.machine.execute, "rm -f /var/tmp/blob")
         b.wait(lambda: re.match(r'^[0-9.]+ (MiB|GiB)/s$', b.text("#current-disks-write")))
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))  # this should stay calm
-        m.execute("kill %d" % disk_write_hog)
+        m.execute("systemctl stop disk-write-hog")
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))
 
         # Disk usage
@@ -363,10 +363,11 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: rateMatches("In", r'^[0-9.]+ (KiB|B)/s$'))
         b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (KiB|B)/s$'))
         # pipe lots of data through lo
-        lo_hog = m.spawn("nc -l 2000 > /dev/null & nc localhost 2000 </dev/zero", "lo_hog")
+        m.execute("systemd-run --slice cockpittest --unit lo-hog sh -ec "
+                  " 'nc -l 2000 > /dev/null & nc localhost 2000 </dev/zero'")
         b.wait(lambda: rateMatches("In", r'^[0-9.]+ (MiB|GiB)/s$'))
         b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (MiB|GiB)/s$'))
-        m.execute("kill %d" % lo_hog)
+        m.execute("systemctl stop lo-hog")
 
 
 class TestMultiCPU(testlib.MachineCase):

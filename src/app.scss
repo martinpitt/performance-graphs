@@ -7,6 +7,12 @@
   --card-width: 22rem;
   --pf-l-gallery--GridTemplateColumns: repeat(auto-fill, minmax(var(--card-width), 1fr));
 
+  // the cards already have padding, align the "top 5" tables with the other content
+  .pf-c-table {
+      --pf-c-table--m-compact--cell--first-last-child--PaddingLeft: 0;
+      --pf-c-table--m-compact--cell--first-last-child--PaddingRight: 0;
+  }
+
   .pf-c-card {
       &__title {
           font-size: var(--pf-global--FontSize--xl);

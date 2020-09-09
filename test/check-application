@@ -290,7 +290,7 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: topServiceValue("Top 5 memory services", "Used", 1) < 350)
 
         # table entries are links to Services page
-        b.click("table[aria-label='Top 5 memory services'] tbody tr:nth-of-type(1) td[data-label='Service'] a")
+        b.click("table[aria-label='Top 5 memory services'] tbody tr:nth-of-type(1) td[data-label='Service'] a span")
         b.enter_page("/system/services")
         b.wait_in_text("#path", "/mem-hog.service")
         b.wait_in_text(".service-name", "MEMBLOB=")

@@ -385,63 +385,71 @@ class CurrentMetrics extends React.Component {
                 <Card>
                     <CardTitle>{ _("CPU") }</CardTitle>
                     <CardBody>
-                        <div className="progress-stack">
-                            <Progress
-                                id="current-cpu-usage"
-                                value={this.state.cpuUsed}
-                                className="pf-m-sm"
-                                min={0} max={100}
-                                variant={ this.state.cpuUsed > 90 ? ProgressVariant.danger : ProgressVariant.info }
-                                title={ num_cpu_str }
-                                label={ this.state.cpuUsed + '% ' } />
+                        <div className="flex-card-contents">
+                            <div className="progress-stack">
+                                <Progress
+                                    id="current-cpu-usage"
+                                    value={this.state.cpuUsed}
+                                    className="pf-m-sm"
+                                    min={0} max={100}
+                                    variant={ this.state.cpuUsed > 90 ? ProgressVariant.danger : ProgressVariant.info }
+                                    title={ num_cpu_str }
+                                    label={ this.state.cpuUsed + '% ' } />
+                            </div>
+
+                            { this.state.loadAvg &&
+                                <DescriptionList isHorizontal>
+                                    <DescriptionListGroup>
+                                        <DescriptionListTerm>{ _("Load") }</DescriptionListTerm>
+                                        <DescriptionListDescription id="load-avg">{this.state.loadAvg}</DescriptionListDescription>
+                                    </DescriptionListGroup>
+                                </DescriptionList> }
+
+                            <div className="vertical-stretch" />
+
+                            { this.state.topServicesCPU.length > 0 &&
+                                <Table
+                                    variant={TableVariant.compact}
+                                    borders={false}
+                                    aria-label={ _("Top 5 CPU services") }
+                                    cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, "%"] }
+                                    rows={this.state.topServicesCPU}>
+                                    <TableHeader />
+                                    <TableBody />
+                                </Table> }
                         </div>
-
-                        { this.state.loadAvg &&
-                            <DescriptionList isHorizontal>
-                                <DescriptionListGroup>
-                                    <DescriptionListTerm>{ _("Load") }</DescriptionListTerm>
-                                    <DescriptionListDescription id="load-avg">{this.state.loadAvg}</DescriptionListDescription>
-                                </DescriptionListGroup>
-                            </DescriptionList> }
-
-                        { this.state.topServicesCPU.length > 0 &&
-                            <Table
-                                variant={TableVariant.compact}
-                                borders={false}
-                                aria-label={ _("Top 5 CPU services") }
-                                cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, "%"] }
-                                rows={this.state.topServicesCPU}>
-                                <TableHeader />
-                                <TableBody />
-                            </Table> }
                     </CardBody>
                 </Card>
 
                 <Card>
                     <CardTitle>{ _("Memory") }</CardTitle>
                     <CardBody>
-                        <div className="progress-stack">
-                            <Progress
-                                id="current-memory-usage"
-                                title={ _("RAM") }
-                                value={this.state.memUsed}
-                                className="pf-m-sm"
-                                min={0} max={memTotal}
-                                variant={memUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
-                                label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, memTotal) } />
-                            {swapProgress}
-                        </div>
+                        <div className="flex-card-contents">
+                            <div className="progress-stack">
+                                <Progress
+                                    id="current-memory-usage"
+                                    title={ _("RAM") }
+                                    value={this.state.memUsed}
+                                    className="pf-m-sm"
+                                    min={0} max={memTotal}
+                                    variant={memUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
+                                    label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, memTotal) } />
+                                {swapProgress}
+                            </div>
 
-                        { this.state.topServicesMemory.length > 0 &&
-                            <Table
-                                variant={TableVariant.compact}
-                                borders={false}
-                                aria-label={ _("Top 5 memory services") }
-                                cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, _("Used")] }
-                                rows={this.state.topServicesMemory}>
-                                <TableHeader />
-                                <TableBody />
-                            </Table> }
+                            <div className="vertical-stretch" />
+
+                            { this.state.topServicesMemory.length > 0 &&
+                                <Table
+                                    variant={TableVariant.compact}
+                                    borders={false}
+                                    aria-label={ _("Top 5 memory services") }
+                                    cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, _("Used")] }
+                                    rows={this.state.topServicesMemory}>
+                                    <TableHeader />
+                                    <TableBody />
+                                </Table> }
+                        </div>
                     </CardBody>
                 </Card>
 

@@ -28,7 +28,7 @@ import {
     Page, PageSection,
     Progress, ProgressVariant,
 } from '@patternfly/react-core';
-import { Table, TableHeader, TableBody, TableVariant, RowWrapper } from '@patternfly/react-table';
+import { Table, TableHeader, TableBody, TableVariant, TableText, RowWrapper, cellWidth } from '@patternfly/react-table';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 
 import * as machine_info from "../lib/machine-info.js";
@@ -334,9 +334,10 @@ class CurrentMetrics extends React.Component {
         }
 
         function serviceRow(name, value) {
-            const title = <a key={name} href="#" onClick={ e => cockpit.jump("/system/services#/" + name + ".service") }>{name}</a>;
+            const name_text = <a key={name} href="#" onClick={ e => cockpit.jump("/system/services#/" + name + ".service") }><TableText wrapModifier="truncate">{name}</TableText></a>;
+            const value_text = <TableText wrapModifier="nowrap">{value}</TableText>;
             return {
-                cells: [{ title }, value]
+                cells: [{ title: name_text }, { title: value_text }]
             };
         }
 
@@ -409,7 +410,7 @@ class CurrentMetrics extends React.Component {
                                 variant={TableVariant.compact}
                                 borders={false}
                                 aria-label={ _("Top 5 CPU services") }
-                                cells={ [_("Service"), "%"] }
+                                cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, "%"] }
                                 rows={this.state.topServicesCPU}>
                                 <TableHeader />
                                 <TableBody />
@@ -437,7 +438,7 @@ class CurrentMetrics extends React.Component {
                                 variant={TableVariant.compact}
                                 borders={false}
                                 aria-label={ _("Top 5 memory services") }
-                                cells={ [_("Service"), _("Used")] }
+                                cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, _("Used")] }
                                 rows={this.state.topServicesMemory}>
                                 <TableHeader />
                                 <TableBody />

@@ -265,8 +265,9 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) > 15)
         # ok to fail, as the command exits by itself
         m.execute("systemctl stop load-hog 2>/dev/null || true")
-        # this settles down slowly, don't wait for too long
-        b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) < 10)
+        # this settles down slowly, don't wait for becoming really quiet
+        with b.wait_timeout(180):
+            b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) < 10)
 
         # Memory
 

@@ -399,7 +399,7 @@ class CurrentMetrics extends React.Component {
                         { this.state.loadAvg &&
                             <DescriptionList isHorizontal>
                                 <DescriptionListGroup>
-                                    <DescriptionListTerm>{ _("Load:") }</DescriptionListTerm>
+                                    <DescriptionListTerm>{ _("Load") }</DescriptionListTerm>
                                     <DescriptionListDescription id="load-avg">{this.state.loadAvg}</DescriptionListDescription>
                                 </DescriptionListGroup>
                             </DescriptionList> }
@@ -450,11 +450,11 @@ class CurrentMetrics extends React.Component {
                     <CardBody>
                         <DescriptionList isHorizontal columnModifier={{ lg: '2Col' }}>
                             <DescriptionListGroup>
-                                <DescriptionListTerm>{ _("Reading:") }</DescriptionListTerm>
+                                <DescriptionListTerm>{ _("Reading") }</DescriptionListTerm>
                                 <DescriptionListDescription id="current-disks-read">{ cockpit.format_bytes_per_sec(this.state.disksRead) }</DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
-                                <DescriptionListTerm>{ _("Writing:") }</DescriptionListTerm>
+                                <DescriptionListTerm>{ _("Writing") }</DescriptionListTerm>
                                 <DescriptionListDescription id="current-disks-write">{ cockpit.format_bytes_per_sec(this.state.disksWritten) }</DescriptionListDescription>
                             </DescriptionListGroup>
                         </DescriptionList>

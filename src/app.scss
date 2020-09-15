@@ -19,10 +19,47 @@
           font-weight: var(--pf-global--FontWeight--normal);
       }
 
+      // Let the children get flexy
+      &__body {
+          display: flex;
+          flex-direction: column;
+
+          // Strip the padding from the first item,
+          // including table headings
+          > :first-child,
+          > :first-child > thead > tr > th {
+              padding-top: 0;
+          }
+      }
+
       .progress-stack {
           display: grid;
-          padding: var(--pf-global--spacer--lg) 0;
+          padding-bottom: var(--pf-global--spacer--lg);
           grid-gap: var(--pf-global--spacer--xl) var(--pf-global--spacer--2xl);
+
+          &:not(:first-child) {
+            padding-top: var(--pf-global--spacer--lg);
+          }
+      }
+
+      // Stretch the progress stack and description list so they fill up remaining space.
+      // This pushes the (unflexing) tables to the bottom.
+      .progress-stack,
+      .pf-c-description-list {
+          flex: 1 1 0;
+          align-content: start;
+      }
+
+      // When progress stack and description list are used sequentially,
+      // give the most space to the latter of the two elements.
+      .progress-stack + .pf-c-description-list,
+      .pf-c-description-list + .progress-stack {
+          flex-basis: 100%;
+      }
+
+      // WebKit is a little wonky with flex sizing; it needs specific instructions here
+      .pf-c-description-list:first-child {
+          flex-grow: 0;
       }
   }
 

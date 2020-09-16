@@ -41,7 +41,6 @@ def prepareArchive(machine, name, time):
 
 class TestApplication(testlib.MachineCase):
 
-
     def testBasic(self):
         b = self.browser
         m = self.machine
@@ -79,36 +78,6 @@ class TestApplication(testlib.MachineCase):
         # page auto-updates every minute
         with b.wait_timeout(90):
             b.wait_js_func("(exp => ph_count('.metrics-data-cpu.valid-data') == exp)", valid_start + 1)
-
-        # there are often some initial events at machine startup
-        initial_events = b.call_js_func("ph_count", ".metrics-events")
-
-        # memory saturation event
-        now = datetime.datetime.now()
-        minute_start = now.minute
-        hour_start = int(datetime.datetime.timestamp(now.replace(minute=0, second=0))) * 1000
-
-        mem_hog = m.spawn("MEMBLOB=$(yes | dd bs=1M count=500 iflag=fullblock); sleep infinity", "mem_hog.log")
-        time.sleep(30)
-        m.execute("kill %d" % mem_hog)
-
-        now = datetime.datetime.now()
-        minute_end = now.minute
-        hour_end = int(datetime.datetime.timestamp(now.replace(minute=0, second=0))) * 1000
-
-        # UI auto-updates every minute, so it should pick up the new spike (and possibly other events) within the next 30s
-        b.wait_js_func("(exp => ph_count('.metrics-events') >= exp)", initial_events + 1)
-
-        # We cannot just wait for spike, as we are not sure, in which minute it actually is (it
-        # might be in the starting minute or in the ending one).
-        # Thus just get maximum spike from both, pick the bigger and assert it is what we expect
-        start_spike = getMaximumSpike(b, "memory", True, hour_start, minute_start)
-        end_spike = getMaximumSpike(b, "memory", True, hour_end, minute_end)
-        spike = max(start_spike, end_spike)
-        self.assertGreaterEqual(spike, 0.9)
-
-        # in our CI this ends up as a net swap event, and no actual used memory increase
-        b.wait_in_text(".metrics-events:last-of-type", "Swap")
 
     def testEvents(self):
         b = self.browser
@@ -206,6 +175,41 @@ class TestApplication(testlib.MachineCase):
         self.assertIn("Load spike", events_at(1598950800000, 3))
         self.assertNotIn("Load spike", events_at(1598950800000, 4))
         self.assertIn("Load spike", events_at(1598950800000, 5))
+
+        b.logout()
+
+        #
+        # Memory
+        #
+
+        prepareArchive(m, "memory.tar.gz", 1600248000)
+        self.login_and_go("/performance-graphs")
+        b.wait_in_text(".metrics-history", "Events")
+        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_present(".metrics-hour .metrics-data-cpu")
+
+        # basic RAM consumption after boot
+        self.assertLessEqual(getMaximumSpike(b, "memory", False, 1600236000000, 44), 0.3)
+        self.assertAlmostEqual(getMaximumSpike(b, "memory", True, 1600236000000, 44), 0)
+        self.assertNotIn("Memory spike", events_at(1600236000000, 44))
+        self.assertNotIn("Swap", events_at(1600236000000, 44))
+
+        # swap event from :46 to :47
+        self.assertGreater(getMaximumSpike(b, "memory", True, 1600236000000, 46), 0.9)
+        self.assertIn("Swap", events_at(1600236000000, 46))
+        self.assertGreater(getMaximumSpike(b, "memory", True, 1600236000000, 47), 0.9)
+        # continuous, no new event
+        self.assertNotIn("Swap", events_at(1600236000000, 47))
+
+        # memory spike in :47
+        self.assertGreater(getMaximumSpike(b, "memory", False, 1600236000000, 47), 0.6)
+        self.assertIn("Memory spike", events_at(1600236000000, 47))
+
+        # bigger memory spike in :53
+        self.assertGreater(getMaximumSpike(b, "memory", False, 1600236000000, 53), 0.8)
+        self.assertIn("Memory spike", events_at(1600236000000, 53))
+
+        b.logout()
 
     @testlib.nondestructive
     def testNoData(self):

@@ -114,6 +114,9 @@ class TestApplication(testlib.MachineCase):
         b = self.browser
         m = self.machine
 
+        def events_at(hour, minute):
+            return b.text("#metrics-hour-{0} .metrics-events[style='--metrics-minute:{1};']".format(hour, minute))
+
         #
         # Disks
         #
@@ -137,6 +140,8 @@ class TestApplication(testlib.MachineCase):
         self.assertGreaterEqual(getMaximumSpike(b, "disks", False, 1597662000000, 28), 0.4)
         self.assertLessEqual(getMaximumSpike(b, "disks", False, 1597662000000, 28), 0.6)
         self.assertGreaterEqual(getMaximumSpike(b, "disks", False, 1597662000000, 29), 0.4)
+        # recognized as event
+        self.assertIn("Disk I/O spike", events_at(1597662000000, 28))
 
         # No visible activity after that
         self.assertLessEqual(getMaximumSpike(b, "disks", False, 1597662000000, 30), 0.01)
@@ -161,10 +166,16 @@ class TestApplication(testlib.MachineCase):
         # Test network - Big spike lasting 2 minutes
         self.assertGreaterEqual(getMaximumSpike(b, "network", False, 1598950800000, 3), 0.5)
         self.assertGreaterEqual(getMaximumSpike(b, "network", False, 1598950800000, 4), 0.5)
+        # recognized as event
+        self.assertIn("Network I/O spike", events_at(1598950800000, 3))
+        # but it's not a new event in minute 4
+        self.assertNotIn("Network I/O spike", events_at(1598950800000, 4))
 
         # Followed by smaller spike
         self.assertGreaterEqual(getMaximumSpike(b, "network", False, 1598950800000, 5), 0.35)
         self.assertLessEqual(getMaximumSpike(b, "network", False, 1598950800000, 5), 0.5)
+        # still not a new spike
+        self.assertNotIn("Network I/O spike", events_at(1598950800000, 5))
 
         # Followed by virtually no data
         self.assertLessEqual(getMaximumSpike(b, "network", False, 1598950800000, 6), 0.01)
@@ -174,6 +185,8 @@ class TestApplication(testlib.MachineCase):
         self.assertGreaterEqual(getMaximumSpike(b, "cpu", False, 1598950800000, 4), 0.5)
         self.assertLessEqual(getMaximumSpike(b, "cpu", False, 1598950800000, 4), 0.55)
         self.assertGreaterEqual(getMaximumSpike(b, "cpu", False, 1598950800000, 5), 0.9)
+        self.assertIn("CPU spike", events_at(1598950800000, 2))
+        self.assertIn("CPU spike", events_at(1598950800000, 5))
 
         # Test CPU saturation - 3 spikes, each 2 minutes (medium, big, small)
         self.assertGreaterEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 3), 0.5)
@@ -188,6 +201,11 @@ class TestApplication(testlib.MachineCase):
         self.assertLessEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 7), 0.4)
         self.assertGreaterEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 8), 0.3)
         self.assertLessEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 8), 0.4)
+
+        self.assertNotIn("Load spike", events_at(1598950800000, 2))
+        self.assertIn("Load spike", events_at(1598950800000, 3))
+        self.assertNotIn("Load spike", events_at(1598950800000, 4))
+        self.assertIn("Load spike", events_at(1598950800000, 5))
 
     @testlib.nondestructive
     def testNoData(self):

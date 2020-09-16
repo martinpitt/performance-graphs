@@ -606,8 +606,11 @@ const MetricsHour = ({ startTime, data }) => {
 
             const time = moment(startTime + minute * 60000 + indexOffset * INTERVAL).format("LTS");
             let tooltip = time + "\n\n";
-            for (const t in sample)
-                tooltip += `${RESOURCES[t].name}: ${RESOURCES[t].format(sample[t])}\n`;
+            for (const t in sample) {
+                const v = sample[t];
+                if (v !== null && v !== undefined)
+                    tooltip += `${RESOURCES[t].name}: ${RESOURCES[t].format(v)}\n`;
+            }
             hourElement.setAttribute("title", tooltip);
         } else {
             hourElement.removeAttribute("title");

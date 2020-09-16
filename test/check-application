@@ -90,7 +90,11 @@ class TestApplication(testlib.MachineCase):
         # Disks
         #
 
-        m.execute('swapoff --all; while [ -n "$(swapon --show)" ]; do sleep 1; done')
+        # disable swap, so that we can test current metrics without swap
+        m.execute('''systemctl stop "*.swap" "swap-create@*" || true
+                     systemctl mask "swap-create@"
+                     swapoff --all
+                     while [ -n "$(swapon --show)" ]; do sleep 1; done''')
 
         prepareArchive(m, "disk.tar.gz", 1597672800)
 

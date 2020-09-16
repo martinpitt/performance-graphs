@@ -110,9 +110,13 @@ class TestApplication(testlib.MachineCase):
         # in our CI this ends up as a net swap event, and no actual used memory increase
         b.wait_in_text(".metrics-events:last-of-type", "Swap")
 
-    def testDisks(self):
+    def testEvents(self):
         b = self.browser
         m = self.machine
+
+        #
+        # Disks
+        #
 
         m.execute('swapoff --all; while [ -n "$(swapon --show)" ]; do sleep 1; done')
 
@@ -140,10 +144,11 @@ class TestApplication(testlib.MachineCase):
         # swap usage is not shown if there is no swap
         b.wait_present("#current-memory-usage")
         self.assertFalse(b.is_present("#current-swap-usage"))
+        b.logout()
 
-    def testNetworkAndCPU(self):
-        b = self.browser
-        m = self.machine
+        #
+        # Network and CPU
+        #
 
         prepareArchive(m, "cpu_network.tar.gz", 1598918400)
 

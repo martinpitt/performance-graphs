@@ -344,7 +344,7 @@ class CurrentMetrics extends React.Component {
 
         // top 5 CPU and memory consuming systemd units
         newState.topServicesCPU = n_biggest(this.cgroupCPUNames, this.samples[9], 5).map(
-            x => serviceRow(x[0], Number(x[1] / 10).toFixed(1)) // usec/s → percent
+            x => serviceRow(x[0], Number(x[1] / 10 / numCpu).toFixed(1)) // usec/s → percent
         );
 
         newState.topServicesMemory = n_biggest(this.cgroupMemoryNames, this.samples[10], 5).map(

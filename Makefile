@@ -153,15 +153,17 @@ bots:
 # checkout Cockpit's test API; this has no API stability guarantee, so check out a stable tag
 # when you start a new project, use the latest release, and update it from time to time
 test/common:
-	git fetch --depth=1 https://github.com/cockpit-project/cockpit.git 228
-	git checkout --force FETCH_HEAD -- test/common
-	git reset test/common
+	flock Makefile sh -ec '\
+	    git fetch --depth=1 https://github.com/cockpit-project/cockpit.git 228; \
+	    git checkout --force FETCH_HEAD -- test/common; \
+	    git reset test/common'
 
 src/lib/patternfly/_fonts.scss:
-	git fetch --depth=1 https://github.com/cockpit-project/cockpit.git 227
-	mkdir -p pkg/lib/patternfly && git add pkg/lib/patternfly
-	git checkout --force FETCH_HEAD -- pkg/lib/patternfly
-	git reset -- pkg/lib/patternfly
+	flock Makefile sh -ec '\
+	    git fetch --depth=1 https://github.com/cockpit-project/cockpit.git 227; \
+	    mkdir -p pkg/lib/patternfly && git add pkg/lib/patternfly; \
+	    git checkout --force FETCH_HEAD -- pkg/lib/patternfly; \
+	    git reset -- pkg/lib/patternfly'
 	mkdir -p src/lib && mv pkg/lib/patternfly src/lib/patternfly && rmdir -p pkg/lib
 
 $(NODE_MODULES_TEST): package.json

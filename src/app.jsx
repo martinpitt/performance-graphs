@@ -808,15 +808,16 @@ class MetricsHistory extends React.Component {
         return (
             <div className="metrics">
                 { this.state.hours.length > 0 &&
-                    <section className="metrics-history">
-                        <div className="metrics-label">{ _("Events") }</div>
-                        <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
-                        <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
-                        <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
-                        <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
-
-                        { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
-                    </section> }
+                    <Card>
+                        <CardBody className="metrics-history">
+                            <div className="metrics-label">{ _("Events") }</div>
+                            <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
+                            <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
+                            <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
+                            <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+                            { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
+                        </CardBody>
+                    </Card>}
                 {nodata_alert}
                 <div className="bottom-panel">
                     { this.state.loading

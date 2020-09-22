@@ -96,6 +96,9 @@
     &-time,
     &-label {
         padding: 0.5rem 1rem;
+        width: calc(100% + var(--pf-c-card--child--PaddingRight) + var(--pf-c-card--child--PaddingBottom));
+        right: var(--pf-c-card--child--PaddingRight);
+        position: inherit;
     }
 
     &-info,

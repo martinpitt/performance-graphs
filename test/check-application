@@ -49,8 +49,8 @@ class TestApplication(testlib.MachineCase):
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading
-        b.wait_in_text(".metrics-history", "Events")
-        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_in_text(".metrics-history-heading", "Events")
+        b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
         # only shows current hour
@@ -100,8 +100,8 @@ class TestApplication(testlib.MachineCase):
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading
-        b.wait_in_text(".metrics-history", "Events")
-        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_in_text(".metrics-history-heading", "Events")
+        b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
         # Big spike lasting 3 minutes
@@ -132,8 +132,8 @@ class TestApplication(testlib.MachineCase):
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading
-        b.wait_in_text(".metrics-history", "Events")
-        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_in_text(".metrics-history-heading", "Events")
+        b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
         # Test network - Big spike lasting 2 minutes
@@ -188,8 +188,8 @@ class TestApplication(testlib.MachineCase):
 
         prepareArchive(m, "memory.tar.gz", 1600248000)
         self.login_and_go("/performance-graphs")
-        b.wait_in_text(".metrics-history", "Events")
-        b.wait_in_text(".metrics-history", "CPU")
+        b.wait_in_text(".metrics-history-heading", "Events")
+        b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
         # basic RAM consumption after boot

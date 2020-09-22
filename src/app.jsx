@@ -808,16 +808,22 @@ class MetricsHistory extends React.Component {
         return (
             <div className="metrics">
                 { this.state.hours.length > 0 &&
-                    <Card>
-                        <CardBody className="metrics-history">
-                            <div className="metrics-label">{ _("Events") }</div>
-                            <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
-                            <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
-                            <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
-                            <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
-                            { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
-                        </CardBody>
-                    </Card>}
+                    <>
+                        <div className="metrics-history-heading-sticky">
+                            <section className="metrics-history metrics-history-heading">
+                                <div className="metrics-label">{ _("Events") }</div>
+                                <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
+                                <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
+                                <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
+                                <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+                            </section>
+                        </div>
+                        <Card>
+                            <CardBody className="metrics-history">
+                                { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
+                            </CardBody>
+                        </Card>
+                    </>}
                 {nodata_alert}
                 <div className="bottom-panel">
                     { this.state.loading

@@ -96,7 +96,7 @@ const RESOURCES = {
         name: _("Swap out"),
         event_description: _("Swap"),
         // page/s, unbounded, and mostly 0; just categorize into "nothing" (most of the time),
-        // "a litte" (< 1000 pages), and "a lot" (> 1000 pages)
+        // "a little" (< 1000 pages), and "a lot" (> 1000 pages)
         normalize: swapout => swapout > 1000 ? 1 : (swapout > 1 ? 0.3 : 0),
         format: swapout => cockpit.format(_("$0 pages"), Math.floor(swapout)),
     },
@@ -537,7 +537,7 @@ const MetricsHour = ({ startTime, data }) => {
             if (samples === null)
                 return;
             const value = samples[type];
-            // either high enough slope, or crossing the 80% treshold
+            // either high enough slope, or crossing the 80% threshold
             if (prev_val !== null && (value - prev_val > 0.25 || (prev_val < 0.8 && value >= 0.8))) {
                 const minute = Math.floor(i / SAMPLES_PER_MIN);
                 if (minute_events[minute] === undefined)

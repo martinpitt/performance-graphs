@@ -101,20 +101,8 @@
         position: inherit;
     }
 
-    &-info,
-    &-events {
-        padding: 0 1rem;
-    }
-
-    &-label {
-        background: #ddd;
-        position: sticky;
-        top: 0;
-        z-index: 99;
-
-        &-graph {
-            text-align: center;
-        }
+    &-label-graph {
+        text-align: center;
     }
 
     &-time {
@@ -208,6 +196,30 @@
         bottom: 0;
         left: 50%;
         border-left: 1px dotted rgba(0,0,0,0.3);
+    }
+
+    .pf-c-card__body:first-child {
+        padding-top: 0;
+    }
+
+    &-history-heading {
+        background: #fff;
+
+        padding-right: calc(var(--pf-global--spacer--lg) + var(--pf-c-page__main-section--PaddingRight));
+        padding-left: calc(var(--pf-global--spacer--lg) + var(--pf-c-page__main-section--PaddingLeft));
+        margin-bottom: 1rem;
+
+        position: relative;
+        width: calc(100% + var(--pf-c-page__main-section--PaddingRight) + var(--pf-c-page__main-section--PaddingLeft));
+        right: var(--pf-c-page__main-section--PaddingRight);
+
+        box-shadow: var(--pf-global--BoxShadow--sm);
+
+        &-sticky {
+            position: sticky;
+            top: 0;
+            z-index: 99;
+        }
     }
 }
 

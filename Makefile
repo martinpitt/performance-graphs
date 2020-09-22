@@ -161,7 +161,7 @@ src/lib/patternfly/_fonts.scss:
 	git fetch --depth=1 https://github.com/cockpit-project/cockpit.git 227
 	mkdir -p pkg/lib/patternfly && git add pkg/lib/patternfly
 	git checkout --force FETCH_HEAD -- pkg/lib/patternfly
-	git restore --staged pkg/lib/patternfly
+	git reset -- pkg/lib/patternfly
 	mkdir -p src/lib && mv pkg/lib/patternfly src/lib/patternfly && rmdir -p pkg/lib
 
 $(NODE_MODULES_TEST): package.json

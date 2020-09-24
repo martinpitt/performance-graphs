@@ -1,3 +1,5 @@
+Hi!
+
 # Cockpit Performance Graphs design study/demo
 
 [Mockup](https://garrett.github.io/cockpit-mockweb/metrics/) -- [Source](https://github.com/garrett/cockpit-mockweb/tree/master/metrics)

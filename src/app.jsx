@@ -528,24 +528,6 @@ const MetricsHour = ({ startTime, data }) => {
         return n;
     });
 
-    for (let minute = 0; minute < 60; ++minute) {
-        const dataOffset = minute * SAMPLES_PER_MIN;
-        const dataSlice = normData.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
-        const valid = dataSlice.some(i => i !== null);
-
-        ['cpu', 'memory', 'disks', 'network'].forEach(resource => {
-            graphs.push(
-                <div
-                    key={ resource + startTime + minute }
-                    className={ ("metrics-data metrics-data-" + resource) + (valid ? " valid-data" : " empty-data")}
-                    style={{ "--metrics-minute": minute }}
-                    aria-hidden="true"
-                >
-                    { valid && <SvgGraph data={dataSlice} resource={resource} /> }
-                </div>);
-        });
-    }
-
     // compute spike events
     const minute_events = {};
     for (const type in RESOURCES) {
@@ -572,6 +554,24 @@ const MetricsHour = ({ startTime, data }) => {
                 <dt><time>{ moment(startTime + (minute * 60000)).format('LT') }</time></dt>
                 { minute_events[minute].map(t => <dd key={ t }>{ RESOURCES[t].event_description }</dd>) }
             </dl>);
+    }
+
+    for (let minute = 0; minute < 60; ++minute) {
+        const dataOffset = minute * SAMPLES_PER_MIN;
+        const dataSlice = normData.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
+        const valid = dataSlice.some(i => i !== null);
+
+        ['cpu', 'memory', 'disks', 'network'].forEach(resource => {
+            graphs.push(
+                <div
+                    key={ resource + startTime + minute }
+                    className={ ("metrics-data metrics-data-" + resource) + (valid ? " valid-data" : " empty-data")}
+                    style={{ "--metrics-minute": minute }}
+                    aria-hidden="true"
+                >
+                    { valid && <SvgGraph data={dataSlice} resource={resource} /> }
+                </div>);
+        });
     }
 
     // FIXME: throttle-debounce this

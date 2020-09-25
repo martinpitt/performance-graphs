@@ -806,7 +806,7 @@ class MetricsHistory extends React.Component {
         if (this.state.error)
             return <EmptyStatePanel
                         icon={ExclamationCircleIcon}
-                        title={_("Error has occured")}
+                        title={_("Error has occurred")}
                         paragraph={this.state.error} />;
 
         let nodata_alert = null;

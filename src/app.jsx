@@ -28,6 +28,7 @@ import {
     DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription,
     Page, PageSection,
     Progress, ProgressVariant,
+    Select, SelectOption,
 } from '@patternfly/react-core';
 import { Table, TableHeader, TableBody, TableVariant, TableText, RowWrapper, cellWidth } from '@patternfly/react-table';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
@@ -651,15 +652,21 @@ class MetricsHistory extends React.Component {
         this.most_recent = 0;
         // Oldest read data
         this.oldest_timestamp = 0;
+        // Timestamp representing today midnight to calculate other days for date select
+        this.today_midnight = null;
 
         this.state = {
             hours: [], // available hours for rendering in descending order
             loading: true, // show loading indicator
             metricsAvailable: true,
             error: null,
+            isDatepickerOpened: false,
+            selectedDate: null,
         };
 
         this.handleMoreData = this.handleMoreData.bind(this);
+        this.handleToggle = this.handleToggle.bind(this);
+        this.handleSelect = this.handleSelect.bind(this);
 
         // load and render the last 24 hours (plus current one) initially; this needs numCpu initialized for correct scaling
         // FIXME: load less up-front, load more when scrolling
@@ -669,6 +676,10 @@ class MetricsHistory extends React.Component {
                         const now = parseInt(out.trim()) * 1000;
                         const current_hour = Math.floor(now / MSEC_PER_H) * MSEC_PER_H;
                         this.load_data(current_hour - LOAD_HOURS * MSEC_PER_H, undefined, true);
+                        this.today_midnight = new Date(current_hour).setHours(0, 0, 0, 0);
+                        this.setState({
+                            selectedDate: this.today_midnight,
+                        });
                     })
                     .catch(ex => this.setState({ error: ex.toString() }));
         });
@@ -676,6 +687,26 @@ class MetricsHistory extends React.Component {
 
     handleMoreData() {
         this.load_data(this.oldest_timestamp - (LOAD_HOURS * MSEC_PER_H), LOAD_HOURS * SAMPLES_PER_H, true);
+    }
+
+    handleToggle(isOpen) {
+        this.setState({ isDatepickerOpened: isOpen });
+    }
+
+    handleSelect(e, sel) {
+        // Stop fetching of new data
+        if (this.history_refresh_timer !== null) {
+            window.clearTimeout(this.history_refresh_timer);
+            this.history_refresh_timer = null;
+        }
+
+        this.oldest_timestamp = 0;
+
+        this.setState({
+            selectedDate: sel,
+            isDatepickerOpened: false,
+            hours: [],
+        }, () => this.load_data(sel, sel === this.today_midnight ? undefined : 24 * SAMPLES_PER_H, true));
     }
 
     load_data(load_timestamp, limit, show_spinner) {
@@ -687,6 +718,7 @@ class MetricsHistory extends React.Component {
         let hour_index; // index within data[current_hour] array
         const current_sample = []; // last valid value, for decompression
         const new_hours = new Set(); // newly seen hours during this load
+        this.history_refresh_timer = null;
 
         const metrics = cockpit.channel({
             payload: "metrics1",
@@ -782,7 +814,7 @@ class MetricsHistory extends React.Component {
 
                 // trigger automatic update every minute
                 if (!limit)
-                    window.setTimeout(() => this.load_data(this.most_recent), 60000, false);
+                    this.history_refresh_timer = window.setTimeout(() => this.load_data(this.most_recent), 60000, false);
             }
 
             metrics.close();
@@ -825,25 +857,46 @@ class MetricsHistory extends React.Component {
         if (!this.state.loading && this.state.hours.length === 0)
             nodata_alert = <EmptyStatePanel icon={ExclamationCircleIcon} title={_("No data available")} />;
 
+        const options = [<SelectOption key={this.today_midnight} value={this.today_midnight}>{_("Today")}</SelectOption>];
+        const date = moment(this.today_midnight);
+        for (let i = 0; i < 14; i++) {
+            date.subtract(1, 'days');
+            options.push(
+                <SelectOption
+                    key={date.format("x")}
+                    value={Math.floor(date.format("X") * 1000)}>
+                    {date.format("dddd, ll")}
+                </SelectOption>
+            );
+        }
+
         return (
             <div className="metrics">
+                <div className="metrics-history-heading-sticky">
+                    <section className="metrics-history metrics-history-heading">
+                        <Select
+                            className="select-min metrics-label"
+                            aria-label={_("Jump to")}
+                            onToggle={this.handleToggle}
+                            onSelect={this.handleSelect}
+                            isOpen={this.state.isDatepickerOpened}
+                            selections={this.state.selectedDate}
+                            toggleId="date-picker-select-toggle"
+                        >
+                            {options}
+                        </Select>
+                        <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
+                        <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
+                        <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
+                        <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+                    </section>
+                </div>
                 { this.state.hours.length > 0 &&
-                    <>
-                        <div className="metrics-history-heading-sticky">
-                            <section className="metrics-history metrics-history-heading">
-                                <div className="metrics-label">{ _("Events") }</div>
-                                <div className="metrics-label metrics-label-graph">{ _("CPU") }</div>
-                                <div className="metrics-label metrics-label-graph">{ _("Memory") }</div>
-                                <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
-                                <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
-                            </section>
-                        </div>
-                        <Card>
-                            <CardBody className="metrics-history">
-                                { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
-                            </CardBody>
-                        </Card>
-                    </>}
+                    <Card>
+                        <CardBody className="metrics-history">
+                            { this.state.hours.map(time => <MetricsHour key={time} startTime={parseInt(time)} data={this.data[time]} />) }
+                        </CardBody>
+                    </Card> }
                 {nodata_alert}
                 <div className="bottom-panel">
                     { this.state.loading

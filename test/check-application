@@ -51,6 +51,16 @@ def prepareArchive(machine, name, time):
 
 class TestApplication(testlib.MachineCase):
 
+    def waitStream(self, current_max):
+        # should only have at most <current_max> valid minutes, the rest should be empty
+        valid_start = self.browser.call_js_func("ph_count", ".metrics-data-cpu.valid-data")
+        self.assertLessEqual(valid_start, current_max)
+        # leave one minute wiggle room, in case the page updates between these two checks
+        self.assertGreaterEqual(self.browser.call_js_func("ph_count", ".metrics-data-cpu.empty-data"), 59 - valid_start)
+        # page auto-updates every minute
+        with self.browser.wait_timeout(90):
+            self.browser.wait_js_func("(exp => ph_count('.metrics-data-cpu.valid-data') == exp)", valid_start + 1)
+
     def testBasic(self):
         b = self.browser
         m = self.machine
@@ -59,7 +69,6 @@ class TestApplication(testlib.MachineCase):
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading
-        b.wait_in_text(".metrics-history-heading", "Events")
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
@@ -80,14 +89,7 @@ class TestApplication(testlib.MachineCase):
         # still only one hour
         b.wait_js_func("ph_count_check", ".metrics-hour", 1)
 
-        # should only have at most three valid minutes, the rest should be empty
-        valid_start = b.call_js_func("ph_count", ".metrics-data-cpu.valid-data")
-        self.assertLessEqual(valid_start, 3)
-        # leave one minute wiggle room, in case the page updates between these two checks
-        self.assertGreaterEqual(b.call_js_func("ph_count", ".metrics-data-cpu.empty-data"), 59 - valid_start)
-        # page auto-updates every minute
-        with b.wait_timeout(90):
-            b.wait_js_func("(exp => ph_count('.metrics-data-cpu.valid-data') == exp)", valid_start + 1)
+        self.waitStream(3)
 
     def testEvents(self):
         b = self.browser
@@ -110,7 +112,6 @@ class TestApplication(testlib.MachineCase):
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading
-        b.wait_in_text(".metrics-history-heading", "Events")
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
@@ -142,7 +143,6 @@ class TestApplication(testlib.MachineCase):
 
         self.login_and_go("/performance-graphs")
         # eventually finishes data loading and shows heading
-        b.wait_in_text(".metrics-history-heading", "Events")
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
@@ -198,7 +198,6 @@ class TestApplication(testlib.MachineCase):
 
         prepareArchive(m, "memory.tar.gz", 1600248000)
         self.login_and_go("/performance-graphs")
-        b.wait_in_text(".metrics-history-heading", "Events")
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
@@ -232,6 +231,24 @@ class TestApplication(testlib.MachineCase):
         self.assertAlmostEqual(getCompressedMinuteValue(b, "memory", True, 1600236000000, 55), 0.0)
 
         b.logout()
+
+        #
+        # Check changing of time
+        #
+
+        m.execute("timedatectl set-time @1600550674")
+        self.login_and_go("/performance-graphs")
+        # self.waitStream(3) # FIXME: wait for new data - pcp does not handle time change greatly
+        b.wait_text(".pf-c-select__toggle-text", "Today")
+
+        b.select_PF4("#date-picker-select-toggle", "Wednesday, Sep 16, 2020")
+        self.assertGreater(getMaximumSpike(b, "memory", False, 1600236000000, 53), 0.8)
+        self.assertIn("Memory spike", events_at(1600236000000, 53))
+
+        b.click(".pf-c-select__toggle")
+        b.click(".pf-c-select__menu-item:contains('Today')")
+        b.wait_text(".pf-c-select__toggle-text", "Today")
+        # self.waitStream(4) # FIXME: wait for new data - pcp does not handle time change greatly
 
     @testlib.nondestructive
     def testNoData(self):

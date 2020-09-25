@@ -822,6 +822,9 @@ class MetricsHistory extends React.Component {
             nodata_alert = <Alert className="nodata" variant="info" isInline title={ cockpit.format(_("No data available between $0 and $1"), t1, t2) } />;
         }
 
+        if (!this.state.loading && this.state.hours.length === 0)
+            nodata_alert = <EmptyStatePanel icon={ExclamationCircleIcon} title={_("No data available")} />;
+
         return (
             <div className="metrics">
                 { this.state.hours.length > 0 &&

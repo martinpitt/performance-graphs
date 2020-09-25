@@ -185,6 +185,29 @@
             grid-column: network;
             --mult: 0.15;
         }
+
+        /* compressed minutes without events are simple bars */
+        .compressed {
+            display: grid;
+            grid-template-areas: ". utilization saturation .";
+            --util-pct: calc(50% * var(--utilization));
+            --sat-pct: calc(50% * var(--saturation));
+            grid-template-columns: calc(50% - var(--util-pct)) var(--util-pct) var(--sat-pct) calc(50% - var(--sat-pct));
+
+            > .saturation,
+            > .utilization {
+                background-color: var(--color);
+            }
+
+            > .utilization {
+                grid-area: utilization;
+            }
+
+            > .saturation {
+                grid-area: saturation;
+                opacity: 0.7;
+            }
+        }
     }
 
     // vertical dotted line through graph center, for areas without data

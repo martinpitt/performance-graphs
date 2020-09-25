@@ -293,18 +293,27 @@
         margin-left: 0.5rem;
         margin-right: 0.5rem;
 
-        &.valid-data {
-            border-top: 1px solid rgba(0,0,0,0.3);
-        }
-        // vertical ruler line for areas with data
-        &.valid-data:after {
+        // vertical ruler line for areas with data, and horizontal tick mark for utilization half
+        &.valid-data:before {
             content: "";
             position: absolute;
             z-index: 1;
             top: 0;
             bottom: 0;
-            left: 50%;
-            border-left: 1px solid rgba(0,0,0,0.3);
+            width: 50%;
+            border-right: 1px solid rgba(0,0,0,0.3);
+            border-top: 1px solid rgba(0,0,0,0.3);
+        }
+
+        // horizontal tick mark for saturation half, for resources that have it
+        &.valid-data.have-saturation:after {
+            content: "";
+            position: absolute;
+            z-index: 1;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            border-top: 1px solid rgba(0,0,0,0.3);
         }
 
         > svg {

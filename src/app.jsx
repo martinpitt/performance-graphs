@@ -616,7 +616,7 @@ const MetricsHour = ({ startTime, data }) => {
             graphs.push(
                 <div
                     key={ resource + startTime + minute }
-                    className={ ("metrics-data metrics-data-" + resource) + (first ? " valid-data" : " empty-data")}
+                    className={ ("metrics-data metrics-data-" + resource) + (first ? " valid-data" : " empty-data") + (have_sat ? " have-saturation" : "") }
                     style={{ "--metrics-minute": minute }}
                     aria-hidden="true"
                 >

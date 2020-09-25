@@ -668,18 +668,19 @@ class MetricsHistory extends React.Component {
                     .then(out => {
                         const now = parseInt(out.trim()) * 1000;
                         const current_hour = Math.floor(now / MSEC_PER_H) * MSEC_PER_H;
-                        this.load_data(current_hour - LOAD_HOURS * MSEC_PER_H);
+                        this.load_data(current_hour - LOAD_HOURS * MSEC_PER_H, undefined, true);
                     })
                     .catch(ex => this.setState({ error: ex.toString() }));
         });
     }
 
     handleMoreData() {
-        this.load_data(this.oldest_timestamp - (LOAD_HOURS * MSEC_PER_H), LOAD_HOURS * SAMPLES_PER_H);
+        this.load_data(this.oldest_timestamp - (LOAD_HOURS * MSEC_PER_H), LOAD_HOURS * SAMPLES_PER_H, true);
     }
 
-    load_data(load_timestamp, limit) {
-        this.setState({ loading: true });
+    load_data(load_timestamp, limit, show_spinner) {
+        if (show_spinner)
+            this.setState({ loading: true });
 
         this.oldest_timestamp = this.oldest_timestamp > load_timestamp || this.oldest_timestamp === 0 ? load_timestamp : this.oldest_timestamp;
         let current_hour; // hour of timestamp, from most recent meta message
@@ -781,7 +782,7 @@ class MetricsHistory extends React.Component {
 
                 // trigger automatic update every minute
                 if (!limit)
-                    window.setTimeout(() => this.load_data(this.most_recent), 60000);
+                    window.setTimeout(() => this.load_data(this.most_recent), 60000, false);
             }
 
             metrics.close();

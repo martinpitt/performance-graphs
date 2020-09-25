@@ -559,17 +559,33 @@ const MetricsHour = ({ startTime, data }) => {
     for (let minute = 0; minute < 60; ++minute) {
         const dataOffset = minute * SAMPLES_PER_MIN;
         const dataSlice = normData.slice(dataOffset, dataOffset + SAMPLES_PER_MIN);
-        const valid = dataSlice.some(i => i !== null);
+        const first = dataSlice.find(i => i !== null);
 
         ['cpu', 'memory', 'disks', 'network'].forEach(resource => {
+            let graph;
+            if (minute_events[minute]) {
+                // render full SVG graphs for "expanded" minutes with events
+                graph = <SvgGraph data={dataSlice} resource={resource} />;
+            } else if (!first) {
+                // no data, just render .metrics-data container for the dotted line
+                graph = null;
+            } else {
+                // render simple bars for "compressed" minutes without events
+                graph = (
+                    <div className="compressed" style={{ "--utilization": first["use_" + resource] || 0, "--saturation": first["sat_" + resource] || 0 }}>
+                        <div className="utilization" />
+                        <div className="saturation" />
+                    </div>);
+            }
+
             graphs.push(
                 <div
                     key={ resource + startTime + minute }
-                    className={ ("metrics-data metrics-data-" + resource) + (valid ? " valid-data" : " empty-data")}
+                    className={ ("metrics-data metrics-data-" + resource) + (first ? " valid-data" : " empty-data")}
                     style={{ "--metrics-minute": minute }}
                     aria-hidden="true"
                 >
-                    { valid && <SvgGraph data={dataSlice} resource={resource} /> }
+                    {graph}
                 </div>);
         });
     }

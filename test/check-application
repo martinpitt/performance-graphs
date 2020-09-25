@@ -17,6 +17,7 @@ import testlib
 
 
 def getMaximumSpike(browser, g_type, saturation, hour, minute):
+    # only for minutes with events, which have SVG graphs
     sel = "#metrics-hour-{0} div.metrics-data-{1}[style='--metrics-minute:{2};'] polygon".format(hour, g_type, minute)
     if saturation:
         sel += ":nth-child(2)"
@@ -28,6 +29,15 @@ def getMaximumSpike(browser, g_type, saturation, hour, minute):
     xs = [float(x.split(",")[0]) for x in points.split()]
 
     return max(xs)
+
+
+def getCompressedMinuteValue(browser, g_type, saturation, hour, minute):
+    # only for minutes without events, which only have bars
+
+    sel = "#metrics-hour-{0} div.metrics-data-{1}[style='--metrics-minute:{2};'] .compressed".format(hour, g_type, minute)
+    m = re.search("--%s:([0-9.]+);" % (saturation and "saturation" or "utilization"), browser.attr(sel, "style"))
+    assert m
+    return float(m.group(1))
 
 
 def prepareArchive(machine, name, time):
@@ -106,18 +116,18 @@ class TestApplication(testlib.MachineCase):
 
         # Big spike lasting 3 minutes
         self.assertGreaterEqual(getMaximumSpike(b, "disks", False, 1597662000000, 25), 0.9)
-        self.assertGreaterEqual(getMaximumSpike(b, "disks", False, 1597662000000, 26), 0.9)
-        self.assertGreaterEqual(getMaximumSpike(b, "disks", False, 1597662000000, 27), 0.9)
+        self.assertGreaterEqual(getCompressedMinuteValue(b, "disks", False, 1597662000000, 26), 0.9)
+        self.assertGreaterEqual(getCompressedMinuteValue(b, "disks", False, 1597662000000, 27), 0.9)
 
         # Smaller spike lasting 2 minutes
         self.assertGreaterEqual(getMaximumSpike(b, "disks", False, 1597662000000, 28), 0.4)
         self.assertLessEqual(getMaximumSpike(b, "disks", False, 1597662000000, 28), 0.6)
-        self.assertGreaterEqual(getMaximumSpike(b, "disks", False, 1597662000000, 29), 0.4)
+        self.assertGreaterEqual(getCompressedMinuteValue(b, "disks", False, 1597662000000, 29), 0.4)
         # recognized as event
         self.assertIn("Disk I/O spike", events_at(1597662000000, 28))
 
         # No visible activity after that
-        self.assertLessEqual(getMaximumSpike(b, "disks", False, 1597662000000, 30), 0.01)
+        self.assertLessEqual(getCompressedMinuteValue(b, "disks", False, 1597662000000, 30), 0.01)
 
         # swap usage is not shown if there is no swap
         b.wait_present("#current-memory-usage")
@@ -151,7 +161,7 @@ class TestApplication(testlib.MachineCase):
         self.assertNotIn("Network I/O spike", events_at(1598950800000, 5))
 
         # Followed by virtually no data
-        self.assertLessEqual(getMaximumSpike(b, "network", False, 1598950800000, 6), 0.01)
+        self.assertLessEqual(getCompressedMinuteValue(b, "network", False, 1598950800000, 6), 0.01)
 
         # Test CPU load - big - small - big spikes
         self.assertGreaterEqual(getMaximumSpike(b, "cpu", False, 1598950800000, 3), 0.9)
@@ -168,12 +178,12 @@ class TestApplication(testlib.MachineCase):
         self.assertLessEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 4), 0.6)
 
         self.assertGreaterEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 5), 0.8)
-        self.assertGreaterEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 6), 0.8)
+        self.assertGreaterEqual(getCompressedMinuteValue(b, "cpu", True, 1598950800000, 6), 0.8)
 
-        self.assertGreaterEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 7), 0.3)
-        self.assertLessEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 7), 0.4)
-        self.assertGreaterEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 8), 0.3)
-        self.assertLessEqual(getMaximumSpike(b, "cpu", True, 1598950800000, 8), 0.4)
+        self.assertGreaterEqual(getCompressedMinuteValue(b, "cpu", True, 1598950800000, 7), 0.3)
+        self.assertLessEqual(getCompressedMinuteValue(b, "cpu", True, 1598950800000, 7), 0.4)
+        self.assertGreaterEqual(getCompressedMinuteValue(b, "cpu", True, 1598950800000, 8), 0.3)
+        self.assertLessEqual(getCompressedMinuteValue(b, "cpu", True, 1598950800000, 8), 0.4)
 
         self.assertNotIn("Load spike", events_at(1598950800000, 2))
         self.assertIn("Load spike", events_at(1598950800000, 3))
@@ -192,7 +202,7 @@ class TestApplication(testlib.MachineCase):
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
-        # basic RAM consumption after boot
+        # basic RAM consumption after boot; it's still a network spike, thus event+SVG
         self.assertLessEqual(getMaximumSpike(b, "memory", False, 1600236000000, 44), 0.3)
         self.assertAlmostEqual(getMaximumSpike(b, "memory", True, 1600236000000, 44), 0)
         self.assertNotIn("Memory spike", events_at(1600236000000, 44))
@@ -201,8 +211,8 @@ class TestApplication(testlib.MachineCase):
         # swap event from :46 to :47
         self.assertGreater(getMaximumSpike(b, "memory", True, 1600236000000, 46), 0.9)
         self.assertIn("Swap", events_at(1600236000000, 46))
+        # continuous, no new Swap event, but still a Memory+Network event
         self.assertGreater(getMaximumSpike(b, "memory", True, 1600236000000, 47), 0.9)
-        # continuous, no new event
         self.assertNotIn("Swap", events_at(1600236000000, 47))
 
         # memory spike in :47
@@ -212,6 +222,14 @@ class TestApplication(testlib.MachineCase):
         # bigger memory spike in :53
         self.assertGreater(getMaximumSpike(b, "memory", False, 1600236000000, 53), 0.8)
         self.assertIn("Memory spike", events_at(1600236000000, 53))
+
+        # continued memory spike in :54, but no new events
+        self.assertGreater(getCompressedMinuteValue(b, "memory", False, 1600236000000, 54), 0.8)
+        self.assertAlmostEqual(getCompressedMinuteValue(b, "memory", True, 1600236000000, 54), 0.0)
+
+        # everything is quiet in :55
+        self.assertLess(getCompressedMinuteValue(b, "memory", False, 1600236000000, 55), 0.4)
+        self.assertAlmostEqual(getCompressedMinuteValue(b, "memory", True, 1600236000000, 55), 0.0)
 
         b.logout()
 
@@ -415,9 +433,9 @@ class TestMultiCPU(testlib.MachineCase):
         prepareArchive(m, "2corescpu.tar.gz", 1598971635)
         self.login_and_go("/performance-graphs")
 
-        # one core is busy, the other idle -- that should be 50% total usage systemctl stop pmlogger
-        self.assertGreaterEqual(getMaximumSpike(b, "cpu", False, 1598968800000, 44), 0.2)
-        self.assertLessEqual(getMaximumSpike(b, "cpu", False, 1598968800000, 44), 0.55)
+        # one core is busy, the other idle -- that should be 50% total usage
+        self.assertGreaterEqual(getCompressedMinuteValue(b, "cpu", False, 1598968800000, 44), 0.2)
+        self.assertLessEqual(getCompressedMinuteValue(b, "cpu", False, 1598968800000, 44), 0.55)
 
         # next minute, both cores are busy
         self.assertGreaterEqual(getMaximumSpike(b, "cpu", False, 1598968800000, 45), 0.5)

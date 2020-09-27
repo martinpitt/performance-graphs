@@ -492,7 +492,7 @@ class CurrentMetrics extends React.Component {
     }
 }
 
-const SvgGraph = ({ data, resource }) => {
+const SvgGraph = ({ data, resource, have_sat }) => {
     const dataPoints = key => (
         "0,0 " + // start polygon at (0, 0)
         data.map((samples, index) => (samples && typeof samples[key] === 'number') ? samples[key].toString() + "," + index.toString() : "").join(" ") +
@@ -505,7 +505,7 @@ const SvgGraph = ({ data, resource }) => {
                  transform={ "matrix(-1,0,0,-1,1," + SVG_YMAX + ")" }
                  points={ dataPoints("use_" + resource) }
             />
-            { (resource === 'cpu' || resource === 'memory') && <polygon
+            { have_sat && <polygon
                 transform={ "matrix(1,0,0,-1,1," + SVG_YMAX + ")" }
                 points={ dataPoints("sat_" + resource) }
                 opacity="0.7"
@@ -563,10 +563,13 @@ const MetricsHour = ({ startTime, data }) => {
         const first = dataSlice.find(i => i !== null);
 
         ['cpu', 'memory', 'disks', 'network'].forEach(resource => {
+            // not all resources have a saturation metric
+            const have_sat = !!RESOURCES["sat_" + resource];
+
             let graph;
             if (minute_events[minute]) {
                 // render full SVG graphs for "expanded" minutes with events
-                graph = <SvgGraph data={dataSlice} resource={resource} />;
+                graph = <SvgGraph data={dataSlice} resource={resource} have_sat={have_sat} />;
             } else if (!first) {
                 // no data, just render .metrics-data container for the dotted line
                 graph = null;
@@ -575,7 +578,7 @@ const MetricsHour = ({ startTime, data }) => {
                 graph = (
                     <div className="compressed" style={{ "--utilization": first["use_" + resource] || 0, "--saturation": first["sat_" + resource] || 0 }}>
                         <div className="utilization" />
-                        <div className="saturation" />
+                        { have_sat && <div className="saturation" /> }
                     </div>);
             }
 

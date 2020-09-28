@@ -364,8 +364,8 @@ class CurrentMetrics extends React.Component {
 
         const netIO = this.netInterfacesNames.map((iface, i) => [
             iface,
-            cockpit.format_bytes_per_sec(this.state.netInterfacesRx[i]),
-            cockpit.format_bytes_per_sec(this.state.netInterfacesTx[i]),
+            this.state.netInterfacesRx[i] >= 1 ? cockpit.format_bytes_per_sec(this.state.netInterfacesRx[i]) : "0",
+            this.state.netInterfacesTx[i] >= 1 ? cockpit.format_bytes_per_sec(this.state.netInterfacesTx[i]) : "0",
         ]);
 
         let swapProgress;
@@ -463,11 +463,11 @@ class CurrentMetrics extends React.Component {
                         <DescriptionList isHorizontal columnModifier={{ lg: '2Col' }}>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>{ _("Read") }</DescriptionListTerm>
-                                <DescriptionListDescription id="current-disks-read">{ cockpit.format_bytes_per_sec(this.state.disksRead) }</DescriptionListDescription>
+                                <DescriptionListDescription id="current-disks-read">{ this.state.disksRead >= 1 ? cockpit.format_bytes_per_sec(this.state.disksRead) : "0" }</DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>{ _("Write") }</DescriptionListTerm>
-                                <DescriptionListDescription id="current-disks-write">{ cockpit.format_bytes_per_sec(this.state.disksWritten) }</DescriptionListDescription>
+                                <DescriptionListDescription id="current-disks-write">{ this.state.disksWritten >= 1 ? cockpit.format_bytes_per_sec(this.state.disksWritten) : "0" }</DescriptionListDescription>
                             </DescriptionListGroup>
                         </DescriptionList>
 

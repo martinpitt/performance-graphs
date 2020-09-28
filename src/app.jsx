@@ -763,7 +763,10 @@ class MetricsHistory extends React.Component {
             const init_current_hour = () => {
                 if (!this.data[current_hour])
                     this.data[current_hour] = [];
-                new_hours.add(current_hour);
+
+                // When limit is considered only add hours in this time range
+                if (!limit || load_timestamp + (limit * INTERVAL) >= current_hour)
+                    new_hours.add(current_hour);
             };
 
             // meta message

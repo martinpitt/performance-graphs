@@ -91,6 +91,11 @@ class TestApplication(testlib.MachineCase):
 
         self.waitStream(3)
 
+        # Change date to yesterday, should be empty
+        b.click(".pf-c-select__toggle-arrow")
+        b.click(".pf-c-select__menu-wrapper:nth-child(2) button")
+        b.wait_text(".pf-c-empty-state", "No data available")
+
     def testEvents(self):
         b = self.browser
         m = self.machine

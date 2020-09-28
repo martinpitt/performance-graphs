@@ -373,14 +373,18 @@ class CurrentMetrics extends React.Component {
         if (swapTotal) {
             const swapUsedFraction = this.state.swapUsed / swapTotal;
             const swapAvail = Number(swapTotal - this.state.swapUsed).toFixed(1);
-            swapProgress = <Progress
-                                id="current-swap-usage"
-                                title={ _("Swap") }
-                                value={this.state.swapUsed}
-                                className="pf-m-sm"
-                                min={0} max={swapTotal}
-                                variant={swapUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
-                                label={ cockpit.format(_("$0 GiB available / $1 GiB total"), swapAvail, swapTotal) } />;
+            swapProgress = (
+                <Tooltip content={ cockpit.format(_("$0 GiB total"), swapTotal) } position="bottom">
+                    <Progress
+                        id="current-swap-usage"
+                        tabIndex="0"
+                        title={ _("Swap") }
+                        value={this.state.swapUsed}
+                        className="pf-m-sm"
+                        min={0} max={swapTotal}
+                        variant={swapUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
+                        label={ cockpit.format(_("$0 GiB available"), swapAvail) } />
+                </Tooltip>);
         }
 
         return (
@@ -424,14 +428,19 @@ class CurrentMetrics extends React.Component {
                     <CardTitle>{ _("Memory") }</CardTitle>
                     <CardBody>
                         <div className="progress-stack">
-                            <Progress
-                                id="current-memory-usage"
-                                title={ _("RAM") }
-                                value={this.state.memUsed}
-                                className="pf-m-sm"
-                                min={0} max={memTotal}
-                                variant={memUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
-                                label={ cockpit.format(_("$0 GiB available / $1 GiB total"), memAvail, memTotal) } />
+                            <Tooltip
+                                content={ cockpit.format(_("$0 GiB total"), memTotal) }
+                                position="bottom">
+                                <Progress
+                                    id="current-memory-usage"
+                                    tabIndex="0"
+                                    title={ _("RAM") }
+                                    value={this.state.memUsed}
+                                    className="pf-m-sm"
+                                    min={0} max={memTotal}
+                                    variant={memUsedFraction > 0.9 ? ProgressVariant.danger : ProgressVariant.info}
+                                    label={ cockpit.format(_("$0 GiB available"), memAvail) } />
+                            </Tooltip>
                             {swapProgress}
                         </div>
 

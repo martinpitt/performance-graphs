@@ -29,6 +29,7 @@ import {
     Page, PageSection,
     Progress, ProgressVariant,
     Select, SelectOption,
+    Tooltip,
 } from '@patternfly/react-core';
 import { Table, TableHeader, TableBody, TableVariant, TableText, RowWrapper, cellWidth } from '@patternfly/react-table';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
@@ -359,6 +360,7 @@ class CurrentMetrics extends React.Component {
         const memUsedFraction = this.state.memUsed / memTotal;
         const memAvail = Number(memTotal - this.state.memUsed).toFixed(1);
         const num_cpu_str = cockpit.format(cockpit.ngettext("$0 CPU", "$0 CPUs", numCpu), numCpu);
+        const have_storage = cockpit.manifests && cockpit.manifests.storage;
 
         const netIO = this.netInterfacesNames.map((iface, i) => [
             iface,
@@ -460,15 +462,28 @@ class CurrentMetrics extends React.Component {
                             </DescriptionListGroup>
                         </DescriptionList>
 
-                        <div className="progress-stack"> {
-                            this.state.mounts.map(info => <Progress
-                                data-disk-usage-target={info.target}
-                                key={info.target}
-                                value={ info.use } min={0} max={100}
-                                className="pf-m-sm"
-                                variant={info.use > 90 ? ProgressVariant.danger : ProgressVariant.info}
-                                title={info.target}
-                                label={ cockpit.format(_("$0 free / $1 total"), cockpit.format_bytes(info.avail, 1000), cockpit.format_bytes(info.size, 1000)) } />)
+                        <div id="current-disks-usage" className="progress-stack"> {
+                            this.state.mounts.map(info => {
+                                let progress = (
+                                    <Progress
+                                        data-disk-usage-target={info.target}
+                                        value={info.use} min={0} max={100}
+                                        className="pf-m-sm"
+                                        variant={info.use > 90 ? ProgressVariant.danger : ProgressVariant.info}
+                                        title={info.target}
+                                        label={ cockpit.format(_("$0 free"), cockpit.format_bytes(info.avail, 1000)) } />
+                                );
+                                if (have_storage)
+                                    progress = <Button variant="link" isInline onClick={() => cockpit.jump("/storage") }>{progress}</Button>;
+
+                                return (
+                                    <Tooltip
+                                        key={info.target}
+                                        content={ cockpit.format(_("$0 total"), cockpit.format_bytes(info.size, 1000)) }
+                                        position="bottom">
+                                        {progress}
+                                    </Tooltip>);
+                            })
                         }
                         </div>
                     </CardBody>

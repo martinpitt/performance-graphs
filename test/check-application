@@ -394,8 +394,8 @@ class TestApplication(testlib.MachineCase):
         # Disk I/O
 
         # test env should be quiet enough to not transmit MB/s
-        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))
-        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))
+        b.wait(lambda: re.match(r'^(0|[0-9.]+ (KiB|B)/s)$', b.text("#current-disks-read")))
+        b.wait(lambda: re.match(r'^(0|[0-9.]+ (KiB|B)/s)$', b.text("#current-disks-write")))
         # reading lots of data
         m.execute("systemd-run --slice cockpittest --unit disk-read-hog sh -ec 'grep -r . /usr >/dev/null'")
         b.wait(lambda: re.match(r'^[0-9.]+ (MiB|GiB)/s$', b.text("#current-disks-read")))
@@ -409,7 +409,7 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: re.match(r'^[0-9.]+ (MiB|GiB)/s$', b.text("#current-disks-write")))
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-read")))  # this should stay calm
         m.execute("systemctl stop disk-write-hog")
-        b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))
+        b.wait(lambda: re.match(r'^(0|[0-9.]+ (KiB|B)/s)$', b.text("#current-disks-write")))
 
         # Disk usage
 
@@ -469,14 +469,20 @@ class TestApplication(testlib.MachineCase):
             return re.match(regexp, text) is not None
 
         # loopback is quiet enough to not transmit MB/s
-        b.wait(lambda: rateMatches("In", r'^[0-9.]+ (KiB|B)/s$'))
-        b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (KiB|B)/s$'))
+        b.wait(lambda: rateMatches("In", r'^(0|[0-9.]+ (KiB|B)/s)$'))
+        b.wait(lambda: rateMatches("Out", r'^(0|$[0-9.]+ (KiB|B)/s)$'))
         # pipe lots of data through lo
         m.execute("systemd-run --slice cockpittest --unit lo-hog sh -ec "
                   " 'nc -l 2000 > /dev/null & nc localhost 2000 </dev/zero'")
         b.wait(lambda: rateMatches("In", r'^[0-9.]+ (MiB|GiB)/s$'))
         b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (MiB|GiB)/s$'))
         m.execute("systemctl stop lo-hog")
+
+        # add synthetic veth which is guaranteed quiet
+        m.execute("ip link add name cockpittest1 type veth peer name vcockpittest1")
+        self.addCleanup(m.execute, "ip link del dev cockpittest1")
+        b.wait_text("[aria-label='Network usage'] [data-interface='cockpittest1'] td[data-label='In']", "0")
+        b.wait_text("[aria-label='Network usage'] [data-interface='cockpittest1'] td[data-label='Out']", "0")
 
 
 class TestMultiCPU(testlib.MachineCase):

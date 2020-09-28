@@ -409,12 +409,39 @@ class TestApplication(testlib.MachineCase):
                   """)
         self.addCleanup(self.machine.execute, "umount /var/cockpittest")
         self.assertLess(progressValue(".pf-c-progress[data-disk-usage-target='/var/cockpittest']"), 5)
-        free = b.text(".pf-c-progress[data-disk-usage-target='/var/cockpittest'] .pf-c-progress__status")
-        # anything between 40 and 50 MB
-        self.assertRegex(free, "^4\d\.\d MB free / 4\d\.\d MB total$")
+        progress_sel = ".pf-c-progress[data-disk-usage-target='/var/cockpittest'] .pf-c-progress__status"
+        # free size is anything between 40 and 50 MB
+        self.assertRegex(b.text(progress_sel), "^4\d\.\d MB free$")
+        # total size is shown in tooltip
+        b.mouse(progress_sel, "mouseenter")
+        b.wait_in_text(".pf-c-tooltip", "total")
+        # total size is anything between 40 and 50 MB
+        self.assertRegex(b.text(".pf-c-tooltip"), "^4\d\.\d MB total$")
+        b.mouse(progress_sel, "mouseleave")
 
         m.execute("dd if=/dev/zero of=/var/cockpittest/blob bs=1M count=40")
         b.wait(lambda: progressValue(".pf-c-progress[data-disk-usage-target='/var/cockpittest']") >= 90)
+
+        # clicking on progress leads to the storage page
+        self.assertTrue(b.is_present("#current-disks-usage button"))
+        b.click(progress_sel)
+        b.enter_page("/storage")
+        # weird -- storage page does not show transient mount points, only permanent ones; so check for the device
+        dev = m.execute("findmnt --noheadings -o SOURCE /var/cockpittest").strip()
+        b.wait_in_text("#mounts", dev)
+
+        b.go("/performance-graphs")
+        b.enter_page("/performance-graphs")
+        b.wait_present(progress_sel)
+        b.logout()
+
+        # without cockpit-storaged, mounts are not links
+        self.restore_file("/usr/share/cockpit/storaged/manifest.json")
+        m.write("/usr/share/cockpit/storaged/manifest.json", "")
+        self.allow_journal_messages("storaged: couldn't read manifest.json: JSON data was empty")
+        b.login_and_go("/performance-graphs")
+        b.wait_present(progress_sel)
+        self.assertFalse(b.is_present("#current-disks-usage button"))
 
         # Network usage
 

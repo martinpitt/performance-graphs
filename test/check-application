@@ -355,6 +355,11 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: topServiceValue("Top 5 memory services", "Used", 1) > 300)
         b.wait(lambda: topServiceValue("Top 5 memory services", "Used", 1) < 350)
 
+        # total memory is shown as tooltip
+        b.mouse("#current-memory-usage", "mouseenter")
+        b.wait_in_text(".pf-c-tooltip", "GiB total")
+        b.mouse("#current-memory-usage", "mouseleave")
+
         # table entries are links to Services page
         b.click("table[aria-label='Top 5 memory services'] tbody tr:nth-of-type(1) td[data-label='Service'] a span")
         b.enter_page("/system/services")
@@ -375,6 +380,11 @@ class TestApplication(testlib.MachineCase):
         b.wait(lambda: progressValue("#current-memory-usage") <= initial_usage)
         self.assertGreater(progressValue("#current-memory-usage"), 10)
         b.wait_not_in_text("table[aria-label='Top 5 memory services'] tbody", "mem-hog")
+
+        # total swap is shown as tooltip
+        b.mouse("#current-swap-usage", "mouseenter")
+        b.wait_in_text(".pf-c-tooltip", "GiB total")
+        b.mouse("#current-swap-usage", "mouseleave")
 
         # Disk I/O
 

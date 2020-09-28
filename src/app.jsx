@@ -32,7 +32,7 @@ import {
     Select, SelectOption,
     Tooltip,
 } from '@patternfly/react-core';
-import { Table, TableHeader, TableBody, TableVariant, TableText, RowWrapper, cellWidth } from '@patternfly/react-table';
+import { Table, TableHeader, TableBody, TableGridBreakpoint, TableVariant, TableText, RowWrapper, cellWidth } from '@patternfly/react-table';
 import { ExclamationCircleIcon } from '@patternfly/react-icons';
 
 import * as machine_info from "../lib/machine-info.js";
@@ -415,6 +415,7 @@ class CurrentMetrics extends React.Component {
                         { this.state.topServicesCPU.length > 0 &&
                             <Table
                                 variant={TableVariant.compact}
+                                gridBreakPoint={TableGridBreakpoint.none}
                                 borders={false}
                                 aria-label={ _("Top 5 CPU services") }
                                 cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, "%"] }
@@ -448,6 +449,7 @@ class CurrentMetrics extends React.Component {
                         { this.state.topServicesMemory.length > 0 &&
                             <Table
                                 variant={TableVariant.compact}
+                                gridBreakPoint={TableGridBreakpoint.none}
                                 borders={false}
                                 aria-label={ _("Top 5 memory services") }
                                 cells={ [{ title: _("Service"), transforms: [cellWidth(80)] }, _("Used")] }
@@ -461,7 +463,7 @@ class CurrentMetrics extends React.Component {
                 <Card>
                     <CardTitle>{ _("Disks") }</CardTitle>
                     <CardBody>
-                        <DescriptionList isHorizontal columnModifier={{ lg: '2Col' }}>
+                        <DescriptionList isHorizontal columnModifier={{ default: '2Col' }}>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>{ _("Read") }</DescriptionListTerm>
                                 <DescriptionListDescription id="current-disks-read">{ this.state.disksRead >= 1 ? cockpit.format_bytes_per_sec(this.state.disksRead) : "0" }</DescriptionListDescription>
@@ -499,11 +501,15 @@ class CurrentMetrics extends React.Component {
                     </CardBody>
                 </Card>
 
-                <Card>
+                <Card className="current-metrics-network">
                     <CardTitle>{ _("Network") }</CardTitle>
                     <CardBody>
                         <Table
                             variant={TableVariant.compact}
+                            // FIXME: If we can make the table less wide, then we can switch from gridLg to none
+                            // and (possibly) dropping (at least some of) the font size overrides
+                            // this would require breaking out the units/s into its own row
+                            gridBreakPoint={TableGridBreakpoint.gridLg}
                             borders={false}
                             aria-label={ _("Network usage") }
                             cells={ [_("Interface"), _("In"), _("Out")] } rows={netIO}

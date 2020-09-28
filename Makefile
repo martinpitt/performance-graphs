@@ -173,10 +173,6 @@ $(NODE_MODULES_TEST): package.json
 	env -u NODE_ENV npm install
 	env -u NODE_ENV npm prune
 
-# force serialization of the targets that call git, as they compete for the git lock
-bots: test/common
-test/common: src/lib/patternfly/_fonts.scss
-
 testdata: bots
 	chmod 600 bots/machine/identity
 	cat test/pmlog.tar.xz | ssh -p 2201 -i bots/machine/identity -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.2 'set -e; timedatectl set-ntp off; systemctl stop pmlogger; rm -rf /var/log/pcp/pmlogger; tar -C / -xJf -; timedatectl set-time @1595936695; systemctl start pmlogger'

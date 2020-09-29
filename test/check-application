@@ -96,6 +96,11 @@ class TestApplication(testlib.MachineCase):
         b.click(".pf-c-select__menu-wrapper:nth-child(2) button")
         b.wait_text(".pf-c-empty-state", "No data available")
 
+        # Breadcrumb back to Overview page
+        b.click(".pf-c-breadcrumb li:first-child a")
+        b.enter_page("/system")
+        b.wait_visible('.system-information')
+
     def testEvents(self):
         b = self.browser
         m = self.machine

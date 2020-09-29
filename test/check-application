@@ -7,7 +7,6 @@ import os
 import re
 import sys
 import time
-import datetime
 
 # import Cockpit's machinery for test VMs and its browser test API
 TEST_DIR = os.path.dirname(__file__)

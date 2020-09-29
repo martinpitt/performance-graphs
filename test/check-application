@@ -475,8 +475,12 @@ class TestMetrics(MachineCase):
 
         # Network usage
 
+        # add synthetic veth which is guaranteed quiet
+        m.execute("ip link add name cockpittest1 type veth peer name vcockpittest1")
+        self.addCleanup(m.execute, "ip link del dev cockpittest1")
+
         # has expected interfaces
-        b.wait_in_text("[aria-label='Network usage'] [data-interface='virbr0']", "virbr0")
+        b.wait_in_text("[aria-label='Network usage'] [data-interface='cockpittest1']", "cockpittest1")
         b.wait_in_text("[aria-label='Network usage'] [data-interface='lo']", "lo")
 
         def rateMatches(label, regexp):
@@ -493,9 +497,7 @@ class TestMetrics(MachineCase):
         b.wait(lambda: rateMatches("Out", r'^[0-9.]+ (MiB|GiB)/s$'))
         m.execute("systemctl stop lo-hog")
 
-        # add synthetic veth which is guaranteed quiet
-        m.execute("ip link add name cockpittest1 type veth peer name vcockpittest1")
-        self.addCleanup(m.execute, "ip link del dev cockpittest1")
+        # nothing happens on cockpittest1
         b.wait_text("[aria-label='Network usage'] [data-interface='cockpittest1'] td[data-label='In']", "0")
         b.wait_text("[aria-label='Network usage'] [data-interface='cockpittest1'] td[data-label='Out']", "0")
 

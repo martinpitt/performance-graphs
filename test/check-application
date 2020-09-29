@@ -412,7 +412,7 @@ class TestMetrics(MachineCase):
         b.wait(lambda: re.match(r'^(0|[0-9.]+ (KiB|B)/s)$', b.text("#current-disks-read")))
         b.wait(lambda: re.match(r'^(0|[0-9.]+ (KiB|B)/s)$', b.text("#current-disks-write")))
         # reading lots of data
-        m.execute("systemd-run --slice cockpittest --unit disk-read-hog sh -ec 'grep -r . /usr >/dev/null'")
+        m.execute("systemd-run --slice cockpittest --unit disk-read-hog sh -ec 'while true; do echo 3 > /proc/sys/vm/drop_caches; grep -r . /usr >/dev/null; done'")
         b.wait(lambda: re.match(r'^[0-9.]+ (MiB|GiB)/s$', b.text("#current-disks-read")))
         b.wait(lambda: re.match(r'^[0-9.]+ (KiB|B)/s$', b.text("#current-disks-write")))  # this should stay calm
         m.execute("systemctl stop disk-read-hog")

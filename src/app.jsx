@@ -23,6 +23,7 @@ import moment from "moment";
 import { EmptyStatePanel } from "../lib/cockpit-components-empty-state.jsx";
 import {
     Alert,
+    Breadcrumb, BreadcrumbItem,
     Button,
     Card, CardTitle, CardBody, Gallery,
     DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription,
@@ -939,7 +940,12 @@ class MetricsHistory extends React.Component {
 }
 
 export const Application = () => (
-    <Page>
+    <Page breadcrumb={
+        <Breadcrumb>
+            <BreadcrumbItem onClick={() => cockpit.jump("/system")} to="#">{_("Overview")}</BreadcrumbItem>
+            <BreadcrumbItem isActive>{_("Performance Metrics")}</BreadcrumbItem>
+        </Breadcrumb>
+    }>
         <PageSection>
             <CurrentMetrics />
         </PageSection>

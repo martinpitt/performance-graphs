@@ -390,7 +390,7 @@ class CurrentMetrics extends React.Component {
 
         return (
             <Gallery className="current-metrics" hasGutter>
-                <Card>
+                <Card id="current-metrics-card-cpu">
                     <CardTitle>{ _("CPU") }</CardTitle>
                     <CardBody>
                         <div className="progress-stack">

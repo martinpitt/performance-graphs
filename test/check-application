@@ -12,7 +12,7 @@ import time
 TEST_DIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(TEST_DIR, "common"))
 sys.path.append(os.path.join(os.path.dirname(TEST_DIR), "bots/machine"))
-import testlib
+from testlib import *
 
 
 def getMaximumSpike(browser, g_type, saturation, hour, minute):
@@ -43,12 +43,14 @@ def prepareArchive(machine, name, time):
     machine.upload(["archives/{0}".format(name)], "/tmp/")
     machine.execute("""timedatectl set-ntp off
                        systemctl stop pmlogger
+                       hostnamectl set-hostname localhost.localdomain
                        rm -rf /var/log/pcp/pmlogger/*
                        tar -C / -xzvf /tmp/{0}
                        timedatectl set-time @{1}""".format(name, time))
 
 
-class TestApplication(testlib.MachineCase):
+@skipImage("Do not test BaseOS packages", "rhel-8-3-distropkg")
+class TestMetrics(MachineCase):
 
     def waitStream(self, current_max):
         # should only have at most <current_max> valid minutes, the rest should be empty
@@ -60,6 +62,7 @@ class TestApplication(testlib.MachineCase):
         with self.browser.wait_timeout(90):
             self.browser.wait_js_func("(exp => ph_count('.metrics-data-cpu.valid-data') == exp)", valid_start + 1)
 
+    @skipImage("no PCP support", "fedora-coreos")
     def testBasic(self):
         b = self.browser
         m = self.machine
@@ -100,6 +103,7 @@ class TestApplication(testlib.MachineCase):
         b.enter_page("/system")
         b.wait_visible('.system-information')
 
+    @skipImage("no PCP support", "fedora-coreos")
     def testEvents(self):
         b = self.browser
         m = self.machine
@@ -259,7 +263,8 @@ class TestApplication(testlib.MachineCase):
         b.wait_text(".pf-c-select__toggle-text", "Today")
         # self.waitStream(4) # FIXME: wait for new data - pcp does not handle time change greatly
 
-    @testlib.nondestructive
+    @nondestructive
+    @skipImage("no PCP support", "fedora-coreos")
     def testNoData(self):
         b = self.browser
         m = self.machine
@@ -275,20 +280,21 @@ class TestApplication(testlib.MachineCase):
         b.enter_page("/system/services")
         b.wait_in_text("#service-details", "pmlogger.service")
 
-    @testlib.nondestructive
+    @nondestructive
     def testNoCockpitPcp(self):
         b = self.browser
         m = self.machine
 
-        m.execute("mount -t tmpfs tmpfs /usr/share/cockpit/pcp")
-        self.addCleanup(m.execute, "umount /usr/share/cockpit/pcp")
+        if m.image not in ["fedora-coreos"]:
+            m.execute("mount -t tmpfs tmpfs /usr/share/cockpit/pcp")
+            self.addCleanup(m.execute, "umount /usr/share/cockpit/pcp")
 
         self.login_and_go("/metrics")
         b.wait_in_text(".pf-c-empty-state", "cockpit-pcp is missing")
         b.click(".pf-c-empty-state button.pf-m-primary")
-        # this button does not yet do anything
+        # this button does not yet do anything; also, on ostree the button should not exist at all
 
-    @testlib.nondestructive
+    @nondestructive
     def testCurrentMetrics(self):
         b = self.browser
         m = self.machine
@@ -330,8 +336,10 @@ class TestApplication(testlib.MachineCase):
         m.execute("systemctl stop cpu-hog cpu-piglet")
         # should go back to idle usage
         b.wait(lambda: progressValue("#current-cpu-usage") < 20)
-        b.wait_not_in_text("table[aria-label='Top 5 CPU services'] tbody", "cpu-hog")
-        b.wait_not_in_text("table[aria-label='Top 5 CPU services'] tbody", "cpu-piglet")
+        # it could be that the table disappears completely if no service has a noticeable CPU usage;
+        # so don't assume the table exists
+        b.wait_not_in_text("#current-metrics-card-cpu", "cpu-hog")
+        b.wait_not_in_text("#current-metrics-card-cpu", "cpu-piglet")
 
         # Load looks like "1 min: 1.41, 5 min: 1.47, 15 min: 2.30"
         b.wait(lambda: float(b.text("#load-avg").split()[2].rstrip(',')) < 5)
@@ -379,21 +387,23 @@ class TestApplication(testlib.MachineCase):
         b.enter_page("/metrics")
         b.wait_present("table[aria-label='Top 5 memory services']")
 
-        # use even more memory to trigger swap
-        m.execute("systemd-run --slice cockpittest --unit mem-hog2 sh -ec 'MEMBLOB=$(yes | dd bs=1M count=300 iflag=fullblock); sleep infinity'")
-        b.wait(lambda: progressValue("#current-swap-usage") > 0)
+        # some images don't have swap
+        if m.image not in ["debian-stable", "debian-testing", "ubuntu-stable", "ubuntu-testing", "fedora-coreos"]:
+            # use even more memory to trigger swap
+            m.execute("systemd-run --slice cockpittest --unit mem-hog2 sh -ec 'MEMBLOB=$(yes | dd bs=1M count=300 iflag=fullblock); sleep infinity'")
+            b.wait(lambda: progressValue("#current-swap-usage") > 0)
 
-        m.execute("systemctl stop mem-hog mem-hog2")
+            m.execute("systemctl stop mem-hog mem-hog2")
 
-        # should go back to initial_usage; often below, due to paged out stuff
-        b.wait(lambda: progressValue("#current-memory-usage") <= initial_usage)
-        self.assertGreater(progressValue("#current-memory-usage"), 10)
-        b.wait_not_in_text("table[aria-label='Top 5 memory services'] tbody", "mem-hog")
+            # should go back to initial_usage; often below, due to paged out stuff
+            b.wait(lambda: progressValue("#current-memory-usage") <= initial_usage)
+            self.assertGreater(progressValue("#current-memory-usage"), 10)
+            b.wait_not_in_text("table[aria-label='Top 5 memory services'] tbody", "mem-hog")
 
-        # total swap is shown as tooltip
-        b.mouse("#current-swap-usage", "mouseenter")
-        b.wait_in_text(".pf-c-tooltip", "GiB total")
-        b.mouse("#current-swap-usage", "mouseleave")
+            # total swap is shown as tooltip
+            b.mouse("#current-swap-usage", "mouseenter")
+            b.wait_in_text(".pf-c-tooltip", "GiB total")
+            b.mouse("#current-swap-usage", "mouseleave")
 
         # Disk I/O
 
@@ -489,12 +499,14 @@ class TestApplication(testlib.MachineCase):
         b.wait_text("[aria-label='Network usage'] [data-interface='cockpittest1'] td[data-label='Out']", "0")
 
 
-class TestMultiCPU(testlib.MachineCase):
+@skipImage("Do not test BaseOS packages", "rhel-8-3-distropkg")
+class TestMultiCPU(MachineCase):
 
     provision = {
         "0": {"cpus": 2}
     }
 
+    @skipImage("no PCP support", "fedora-coreos")
     def testCPUUsage(self):
         b = self.browser
         m = self.machine
@@ -512,4 +524,4 @@ class TestMultiCPU(testlib.MachineCase):
 
 
 if __name__ == '__main__':
-    testlib.test_main()
+    test_main()

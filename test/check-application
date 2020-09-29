@@ -67,7 +67,7 @@ class TestApplication(testlib.MachineCase):
 
         m.execute("systemctl start pmlogger")
 
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
         # eventually finishes data loading and shows heading
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
@@ -115,7 +115,7 @@ class TestApplication(testlib.MachineCase):
 
         prepareArchive(m, "disk.tar.gz", 1597672800)
 
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
         # eventually finishes data loading and shows heading
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
@@ -146,7 +146,7 @@ class TestApplication(testlib.MachineCase):
 
         prepareArchive(m, "cpu_network.tar.gz", 1598918400)
 
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
         # eventually finishes data loading and shows heading
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
@@ -202,7 +202,7 @@ class TestApplication(testlib.MachineCase):
         #
 
         prepareArchive(m, "memory.tar.gz", 1600248000)
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
         b.wait_in_text(".metrics-history-heading", "CPU")
         b.wait_present(".metrics-hour .metrics-data-cpu")
 
@@ -242,7 +242,7 @@ class TestApplication(testlib.MachineCase):
         #
 
         m.execute("timedatectl set-time @1600550674")
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
         # self.waitStream(3) # FIXME: wait for new data - pcp does not handle time change greatly
         b.wait_text(".pf-c-select__toggle-text", "Today")
 
@@ -263,7 +263,7 @@ class TestApplication(testlib.MachineCase):
         m.execute("systemctl stop pmlogger && mount -t tmpfs tmpfs /var/log/pcp/pmlogger")
         self.addCleanup(m.execute, "umount /var/log/pcp/pmlogger")
 
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
 
         b.wait_in_text(".pf-c-empty-state", "Metrics history could not be loaded")
         # Troubleshoot
@@ -279,7 +279,7 @@ class TestApplication(testlib.MachineCase):
         m.execute("mount -t tmpfs tmpfs /usr/share/cockpit/pcp")
         self.addCleanup(m.execute, "umount /usr/share/cockpit/pcp")
 
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
         b.wait_in_text(".pf-c-empty-state", "cockpit-pcp is missing")
         b.click(".pf-c-empty-state button.pf-m-primary")
         # this button does not yet do anything
@@ -289,7 +289,7 @@ class TestApplication(testlib.MachineCase):
         b = self.browser
         m = self.machine
 
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
 
         def progressValue(progress_bar_sel):
             sel = progress_bar_sel + " .pf-c-progress__indicator"
@@ -371,8 +371,8 @@ class TestApplication(testlib.MachineCase):
         b.wait_in_text("#path", "/mem-hog.service")
         b.wait_in_text(".service-name", "MEMBLOB=")
 
-        b.go("/performance-graphs")
-        b.enter_page("/performance-graphs")
+        b.go("/metrics")
+        b.enter_page("/metrics")
         b.wait_present("table[aria-label='Top 5 memory services']")
 
         # use even more memory to trigger swap
@@ -445,8 +445,8 @@ class TestApplication(testlib.MachineCase):
         dev = m.execute("findmnt --noheadings -o SOURCE /var/cockpittest").strip()
         b.wait_in_text("#mounts", dev)
 
-        b.go("/performance-graphs")
-        b.enter_page("/performance-graphs")
+        b.go("/metrics")
+        b.enter_page("/metrics")
         b.wait_present(progress_sel)
         b.logout()
 
@@ -454,7 +454,7 @@ class TestApplication(testlib.MachineCase):
         self.restore_file("/usr/share/cockpit/storaged/manifest.json")
         m.write("/usr/share/cockpit/storaged/manifest.json", "")
         self.allow_journal_messages("storaged: couldn't read manifest.json: JSON data was empty")
-        b.login_and_go("/performance-graphs")
+        b.login_and_go("/metrics")
         b.wait_present(progress_sel)
         self.assertFalse(b.is_present("#current-disks-usage button"))
 
@@ -496,7 +496,7 @@ class TestMultiCPU(testlib.MachineCase):
         m = self.machine
 
         prepareArchive(m, "2corescpu.tar.gz", 1598971635)
-        self.login_and_go("/performance-graphs")
+        self.login_and_go("/metrics")
 
         # one core is busy, the other idle -- that should be 50% total usage
         self.assertGreaterEqual(getCompressedMinuteValue(b, "cpu", False, 1598968800000, 44), 0.2)

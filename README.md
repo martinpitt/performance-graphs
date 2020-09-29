@@ -52,7 +52,7 @@ tree. To do that, link that to the location were `cockpit-bridge` looks for pack
 
 ```
 mkdir -p ~/.local/share/cockpit
-ln -s `pwd`/dist ~/.local/share/cockpit/performance-graphs
+ln -s `pwd`/dist ~/.local/share/cockpit/metrics
 ```
 
 After changing the code and running `make` again, reload the Cockpit page in

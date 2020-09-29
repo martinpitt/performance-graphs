@@ -8,7 +8,7 @@
 # Check cockpituous documentation for available release targets.
 
 RELEASE_SOURCE="_release/source"
-RELEASE_SPEC="cockpit-performance-graphs.spec"
+RELEASE_SPEC="cockpit-metrics.spec"
 RELEASE_SRPM="_release/srpm"
 
 job release-source

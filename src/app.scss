@@ -229,13 +229,14 @@
 
 .metrics {
     --column-size: minmax(5rem, 10vw);
+    --half-column-size: minmax(2.5rem, 5vw);
     --data-min-height:5px;
     --data-gap: 0;
     &-history,
     &-hour {
         display: grid;
         grid-template: "events cpu memory disks net";
-        grid-template-columns: [events] 3fr [cpu] var(--column-size) [memory] var(--column-size) [disks] var(--column-size) [network] var(--column-size);
+        grid-template-columns: [events] 3fr [cpu] var(--column-size) [memory] var(--column-size) [disks] var(--half-column-size) [network] var(--half-column-size);
         grid-column: 1 / -1;
         position: relative;
     }
@@ -254,6 +255,10 @@
     }
 
     &-label-graph {
+        text-align: right;
+    }
+
+    &-label-graph.have-saturation {
         text-align: center;
     }
 
@@ -300,10 +305,15 @@
             z-index: 1;
             top: 0;
             bottom: 0;
-            width: 50%;
+            width: 100%;
             border-right: 1px solid rgba(0,0,0,0.3);
             border-top: 1px solid rgba(0,0,0,0.3);
         }
+
+        &.valid-data.have-saturation:before {
+            width: 50%;
+        }
+
 
         // horizontal tick mark for saturation half, for resources that have it
         &.valid-data.have-saturation:after {
@@ -313,6 +323,7 @@
             top: 0;
             bottom: 0;
             width: 50%;
+            left: 50%;
             border-top: 1px solid rgba(0,0,0,0.3);
         }
 
@@ -350,10 +361,10 @@
         /* compressed minutes without events are simple bars */
         .compressed {
             display: grid;
-            grid-template-areas: ". utilization saturation .";
-            --util-pct: calc(50% * var(--utilization));
-            --sat-pct: calc(50% * var(--saturation));
-            grid-template-columns: calc(50% - var(--util-pct)) var(--util-pct) var(--sat-pct) calc(50% - var(--sat-pct));
+            grid-template-areas: ". utilization .";
+
+            --util-pct: calc(100% * var(--utilization));
+            grid-template-columns: calc(100% - var(--util-pct)) var(--util-pct);
 
             > .saturation,
             > .utilization {
@@ -369,17 +380,34 @@
                 opacity: 0.7;
             }
         }
+
+        &.have-saturation .compressed {
+            grid-template-areas: ". utilization saturation .";
+            --util-pct: calc(50% * var(--utilization));
+            --sat-pct: calc(50% * var(--saturation));
+            grid-template-columns: calc(50% - var(--util-pct)) var(--util-pct) var(--sat-pct) calc(50% - var(--sat-pct));
+        }
     }
 
     // vertical dotted line through graph center, for areas without data
     &-data:after {
         content: "";
-        position: absolute;
         z-index: -1;
         top: 0;
         bottom: 0;
-        left: 50%;
+        position: absolute;
+    }
+
+    &-data.empty-data:after {
+        position: initial;
+        border-right: 1px dotted rgba(0,0,0,0.3);
+    }
+
+    &-data.empty-data.have-saturation:after {
+        position: absolute;
         border-left: 1px dotted rgba(0,0,0,0.3);
+        border-right: none;
+        left: 50%;
     }
 
     .pf-c-card__body:first-child {

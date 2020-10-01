@@ -907,6 +907,17 @@ class MetricsHistory extends React.Component {
             );
         }
 
+        function Label(props) {
+            return (
+                <div className={"metrics-label metrics-label-graph" + (props.items.length > 1 ? " have-saturation" : "")}>
+                    <span>{props.label}</span>
+                    <span className="metrics-sublabels">
+                        { props.items.map(i => <span key={i}>{i}</span>) }
+                    </span>
+                </div>
+            );
+        }
+
         return (
             <div className="metrics">
                 <div className="metrics-history-heading-sticky">
@@ -922,10 +933,10 @@ class MetricsHistory extends React.Component {
                         >
                             {options}
                         </Select>
-                        <div className="metrics-label metrics-label-graph have-saturation">{ _("CPU") }</div>
-                        <div className="metrics-label metrics-label-graph have-saturation">{ _("Memory") }</div>
-                        <div className="metrics-label metrics-label-graph">{ _("Disks") }</div>
-                        <div className="metrics-label metrics-label-graph">{ _("Network") }</div>
+                        <Label label={_("CPU")} items={[_("Usage"), _("Load")]} />
+                        <Label label={_("Memory")} items={[_("Usage"), _("Swap")]} />
+                        <Label label={_("Disks")} items={[_("Usage")]} />
+                        <Label label={_("Network")} items={[_("Usage")]} />
                     </section>
                 </div>
                 { this.state.hours.length > 0 &&

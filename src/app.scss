@@ -252,14 +252,31 @@
         width: calc(100% + var(--pf-c-card--child--PaddingRight) + var(--pf-c-card--child--PaddingBottom));
         right: var(--pf-c-card--child--PaddingRight);
         position: inherit;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-evenly;
+    }
+
+    &-sublabels {
+        font-size: 65%;
+        color: rgba(0,0,0,0.7);
+        display: flex;
     }
 
     &-label-graph {
         text-align: right;
+
+        & .metrics-sublabels {
+            justify-content: flex-end;
+        }
     }
 
     &-label-graph.have-saturation {
         text-align: center;
+
+        & .metrics-sublabels {
+            justify-content: space-evenly;
+        }
     }
 
     &-time {
